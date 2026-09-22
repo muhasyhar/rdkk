@@ -835,6 +835,25 @@ function invalidateReferenceCache(sheetName) {
   delete _REQUEST_SHEET_CACHE[sheetName];
 }
 
+function invalidateDataSetCache(pattern) {
+  try {
+    const cache = CacheService.getScriptCache();
+    const keys = [
+      'RDKK_DATASET_LAHAN',
+      'RDKK_DATASET_DBWP',
+      'RDKK_DATASET_INITIAL',
+      'RDKK_DATASET_ADMIN'
+    ];
+    keys.forEach(function(key) {
+      if (!pattern || key.indexOf(pattern) !== -1) {
+        cache.remove(key);
+      }
+    });
+  } catch (e) {
+    // ignore cache invalidation errors
+  }
+}
+
 function getConfigValue(key, defaultValue) {
   const { data } = getSheetData('Config');
   for (let i = 0; i < data.length; i++) {
@@ -1276,6 +1295,11 @@ function saveTransaksi(formData, token) {
     try {
       updateDbwpBandingByNOPs(validatedBidangs.map(b => b.generatedNOP));
     } catch (e) {}
+
+    invalidateDataSetCache('LAHAN');
+    invalidateDataSetCache('DBWP');
+    invalidateDataSetCache('INITIAL');
+    invalidateDataSetCache('ADMIN');
 
     return {
       success: true,
@@ -1731,6 +1755,11 @@ function editTransaksi(idTransaksi, updateData, token) {
       updateDbwpBandingByNOPs(affectedNOPs);
     } catch (e) {}
 
+    invalidateDataSetCache('LAHAN');
+    invalidateDataSetCache('DBWP');
+    invalidateDataSetCache('INITIAL');
+    invalidateDataSetCache('ADMIN');
+
     return { success: true, message: `Transaksi ${idTransaksi} berhasil diperbarui.` };
 
   } catch (err) {
@@ -1820,6 +1849,11 @@ function softDeleteTransaksi(idTransaksi, operatorName, token) {
     try {
       updateDbwpBandingByNOPs(affectedNOPs);
     } catch (e) {}
+
+    invalidateDataSetCache('LAHAN');
+    invalidateDataSetCache('DBWP');
+    invalidateDataSetCache('INITIAL');
+    invalidateDataSetCache('ADMIN');
 
     return { success: true, message: `Transaksi ${idTransaksi} (${matchedRows.length} bidang) berhasil dibatalkan.` };
 }
@@ -2266,6 +2300,16 @@ function getUnifiedLahanData(params, token) {
       items: items
     };
 
+    try {
+      CacheService.getScriptCache().put(
+        'RDKK_DATASET_LAHAN',
+        JSON.stringify(resultObj),
+        60
+      );
+    } catch (e) {
+      // ignore cache size / quota issues; data is still returned
+    }
+
     // Return as serialized JSON string to bypass Google Apps Script postMessage deserialization limits
     return JSON.stringify(resultObj);
   } catch (err) {
@@ -2411,7 +2455,6 @@ function addDbwpRow(formData, token) {
     return { success: false, message: 'NOP dan Nama WP wajib diisi!' };
   }
 
-  // Cek duplikasi NOP
   const existing = lookupNOP(nop);
   if (existing.found) {
     return { success: false, message: `NOP ${nop} sudah terdaftar di dbwp atas nama ${existing.namaWP}!` };
@@ -2425,8 +2468,13 @@ function addDbwpRow(formData, token) {
   sheet.appendRow([newNo, nop, blok, bidang, namaWP, alamatWP, luasPBB, koordinat]);
   sheet.getRange(lastRow + 1, 7).setNumberFormat('#,##0');
 
-  writeLog('MASTER', 'Tambah NOP', '-', { NOP: nop, Blok: blok, Bidang: bidang, NamaWP: namaWP, Luas: luasPBB }, session.username, 'Superuser');
-  return { success: true, message: `Berhasil menambahkan NOP ${nop} ke dbwp.` };
+  invalidateDataSetCache('DBWP');
+  writeLog('MASTER', 'Tambah NOP', '-', { NOP: nop, Blok: blok, Bidang: bidang, NamaWP: namaWP, LuasPBB: luasPBB }, session.username, 'Superuser');
+
+  return {
+    success: true,
+    message: `NOP ${nop} berhasil ditambahkan ke dbwp.`
+  };
 }
 
 function editDbwpRow(nopKey, formData, token) {
@@ -2458,6 +2506,7 @@ function editDbwpRow(nopKey, formData, token) {
   sheet.getRange(rowIndex, 7).setValue(newLuas);
   sheet.getRange(rowIndex, 8).setValue(newKoordinat);
 
+  invalidateDataSetCache('DBWP');
   writeLog('MASTER', 'Edit NOP', { NOP: nopKey }, { NamaWP: newNama, Luas: newLuas, Koordinat: newKoordinat }, session.username, 'Superuser');
   return { success: true, message: `Berhasil memperbarui data NOP ${nopKey}.` };
 }
@@ -2549,6 +2598,7 @@ function addKelompokTani(formData, token) {
 
   sheet.appendRow([newId, nama, ketua, kontak, keterangan]);
   invalidateReferenceCache('Kelompok_Tani');
+  invalidateDataSetCache('LAHAN');
   writeLog('MASTER', 'Tambah Kelompok Tani', '-', { ID: newId, Nama: nama, Ketua: ketua }, session.username, 'Superuser');
   return { success: true, message: `Kelompok Tani '${nama}' (${newId}) berhasil ditambahkan.` };
 }
@@ -2611,6 +2661,7 @@ function editKelompokTani(idKelompok, formData, token) {
 
   invalidateReferenceCache('Kelompok_Tani');
   invalidateReferenceCache('Pengaturan_Blok'); // nama kelompok bisa ikut berubah di Pengaturan_Blok
+  invalidateDataSetCache('LAHAN');
   writeLog('MASTER', 'Edit Kelompok Tani', { ID: id, NamaLama: oldNama }, { NamaBaru: newNama, Ketua: newKetua }, session.username, 'Superuser');
   return { success: true, message: `Data Kelompok Tani '${newNama}' berhasil diperbarui.` };
 }
@@ -2656,6 +2707,7 @@ function deleteKelompokTani(idKelompok, token) {
 
   sheet.deleteRow(rowIndex);
   invalidateReferenceCache('Kelompok_Tani');
+  invalidateDataSetCache('LAHAN');
   writeLog('MASTER', 'Hapus Kelompok Tani', { ID: id, Nama: targetNama }, '-', session.username, 'Superuser');
   return { success: true, message: `Kelompok Tani '${targetNama}' berhasil dihapus.` };
 }
@@ -2712,6 +2764,7 @@ function savePengaturanBlok(blokNum, kelompokName, keterangan, token) {
   }
 
   invalidateReferenceCache('Pengaturan_Blok');
+  invalidateDataSetCache('LAHAN');
   writeLog('MASTER', 'Pengaturan Blok', '-', { Blok: blok, Kelompok: kelompok, Keterangan: ket }, session.username, 'Superuser');
   return { success: true, message: `Mapping Blok ${blok} -> Kelompok '${kelompok}' disimpan.` };
 }
@@ -2744,6 +2797,7 @@ function deletePengaturanBlok(blokNum, token) {
 
   sheet.deleteRow(rowIndex);
   invalidateReferenceCache('Pengaturan_Blok');
+  invalidateDataSetCache('LAHAN');
   writeLog('MASTER', 'Hapus Blok', { Blok: blok }, '-', session.username, 'Superuser');
   return { success: true, message: `Blok ${blok} berhasil dihapus dari pengaturan.` };
 }
@@ -2843,6 +2897,7 @@ function saveConfigData(keyStr, valueStr, token) {
   }
 
   invalidateReferenceCache('Config');
+  invalidateDataSetCache('CONFIG');
   writeLog('CONFIG', 'Save Config', '-', { Key: key, Value: val }, session.username, 'Superuser');
   return { success: true, message: `Pengaturan '${key}' disimpan.` };
 }

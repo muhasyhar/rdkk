@@ -1193,8 +1193,27 @@
 
     <div class="user-auth-section" id="auth-status-container">
       <button onclick="openLoginModal()" class="btn btn-secondary btn-sm">Login Superuser</button>
+      <button onclick="openProductionSmokeModal()" class="btn btn-primary btn-sm" title="Run quick smoke test untuk endpoint utama">QA Smoke Test</button>
     </div>
   </header>
+
+  <div id="production-smoke-modal" class="modal" style="display:none;">
+    <div class="modal-content" style="max-width: 900px; max-height: 80vh; overflow: auto;">
+      <div class="modal-header">
+        <h3>Production Smoke Test</h3>
+        <button type="button" onclick="closeProductionSmokeModal()" class="btn btn-secondary btn-sm">✕</button>
+      </div>
+      <div class="modal-body">
+        <p style="margin: 0 0 12px; color: var(--text-secondary);">Menjalankan pengecekan endpoint utama aplikasi dari frontend produksi.</p>
+        <div id="production-smoke-summary" style="margin-bottom: 12px; font-weight: 600;"></div>
+        <div id="production-smoke-results" style="display: grid; gap: 10px;"></div>
+      </div>
+      <div class="modal-footer" style="margin-top: 12px; display: flex; justify-content: flex-end; gap: 8px;">
+        <button type="button" class="btn btn-secondary" onclick="closeProductionSmokeModal()">Tutup</button>
+        <button type="button" class="btn btn-primary" onclick="runOneClickProductionSmokeTest()">Jalankan Lagi</button>
+      </div>
+    </div>
+  </div>
 
   <!-- ============================================================
        App Content Views
@@ -2413,7 +2432,7 @@
    * Ganti API_BASE dengan URL Web App hasil deploy Google Apps Script.
    * Contoh: 'https://script.google.com/macros/s/AKfycb..../exec'
    * ============================================================ */
-  const API_BASE = 'https://script.google.com/macros/s/AKfycbxoTKJklfYkPJbxjnXawJYcaGZ1i13tXZS17WifUls70RNNJeTLyIQfOGGEuaFqtE4mug/exec'; // placeholder — WAJIB diisi sebelum deploy
+  const API_BASE = 'https://script.google.com/macros/s/AKfycbxoTKJklfYkPJbxjnXawJYcaGZ1i13tXZS17WifUls70RNNJeTLyIQfOGGEuaFqtE4mug/exec';
 
   // Token sesi Superuser (disimpan agar tetap login setelah reload halaman)
   let authToken = localStorage.getItem('rdkk_token') || '';
@@ -2483,6 +2502,11 @@
     blokList: [],
     kelompokList: [],
     recentTransactions: [],
+    cache: {},
+    viewState: {
+      historiLoaded: false,
+      adminLoaded: false
+    },
 
     // Current POS Form State (Multi-Bidang)
     pos: {
@@ -2496,6 +2520,58 @@
     // Current Edit Modal State
     currentEdit: null
   };
+
+  function getCachedAppData(key) {
+    try {
+      const raw = localStorage.getItem('rdkk_cache_' + key);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      if (!parsed || !parsed.data || !parsed.fetchedAt) return null;
+      return parsed;
+    } catch (e) {
+      console.warn('Cache read failed for', key, e);
+      return null;
+    }
+  }
+
+  function setCachedAppData(key, data, ttlMs) {
+    try {
+      localStorage.setItem('rdkk_cache_' + key, JSON.stringify({
+        data: data,
+        fetchedAt: Date.now(),
+        ttl: ttlMs || 30000
+      }));
+    } catch (e) {
+      console.warn('Cache write failed for', key, e);
+    }
+  }
+
+  function invalidateAppCaches(keys) {
+    const aliases = {
+      lahan: 'lahanData',
+      initial: 'initialData',
+      dbwp: 'dbwp',
+      admin: 'admin'
+    };
+    const requested = Array.isArray(keys) ? keys : ['initialData', 'lahanData', 'dbwp', 'admin'];
+    const cacheKeys = [...new Set(requested.map((key) => aliases[key] || key))];
+
+    cacheKeys.forEach((key) => {
+      try {
+        localStorage.removeItem('rdkk_cache_' + key);
+      } catch (e) {
+        // no-op
+      }
+      if (AppState && AppState.cache) {
+        delete AppState.cache[key];
+      }
+    });
+
+    if (AppState && AppState.viewState) {
+      AppState.viewState.historiLoaded = false;
+      AppState.viewState.adminLoaded = false;
+    }
+  }
 
   // DOM Elements Initializer
   document.addEventListener('DOMContentLoaded', () => {
@@ -2570,40 +2646,73 @@
     if (activePanel) activePanel.classList.add('active');
     if (activeBtn) activeBtn.classList.add('active');
 
-    // Trigger refresh per view
+    // Trigger heavy-load only once per view until invalidated.
     if (viewId === 'histori-view') {
-      doSearch();
+      if (!AppState.viewState.historiLoaded) {
+        doSearch();
+      }
     } else if (viewId === 'admin-view') {
-      loadAdminTabs();
+      if (!AppState.viewState.adminLoaded) {
+        loadAdminTabs();
+      }
     }
   }
 
   /* ============================================================
    * Load Initial Data from GAS Server
+   * Smart cache: warm metadata is reused for 30s before a background refresh.
    * ============================================================ */
   function loadInitialData() {
+    const cacheKey = 'initialData';
+    const cached = AppState.cache.initialData;
+    const now = Date.now();
+
+    if (cached && cached.data && (now - cached.fetchedAt) < cached.ttl) {
+      applyInitialData(cached.data);
+      return;
+    }
+
+    const localCached = getCachedAppData(cacheKey);
+    if (localCached && localCached.data && (now - localCached.fetchedAt) < localCached.ttl) {
+      AppState.cache.initialData = { data: localCached.data, fetchedAt: localCached.fetchedAt, ttl: localCached.ttl };
+      applyInitialData(localCached.data);
+      return;
+    }
+
     callGAS('getInitialAppData', {}, 'GET')
       .then(data => {
-        AppState.isSuperuser = data.isSuperuser;
-        AppState.superuser = data.superuser;
-        AppState.prefixList = data.prefixList || ['3510071003'];
-        AppState.recentTransactions = data.recentTransactions || [];
-        AppState.blokList = data.blokList || [];
-        AppState.kelompokList = data.kelompokList || [];
-
-        updateAuthUI();
-        initPosBidangs();
-        renderPosBidangs();
-        renderRecentSidebar();
-        populateHistoriKelompokFilter();
-
-        if (typeof renderAdminKelompokTaniTable === 'function') renderAdminKelompokTaniTable();
-        if (typeof renderAdminBlokTable === 'function') renderAdminBlokTable();
-        if (typeof populateAdminBlokKelompokSelect === 'function') populateAdminBlokKelompokSelect();
+        AppState.cache.initialData = { data: data, fetchedAt: Date.now(), ttl: 30000 };
+        setCachedAppData(cacheKey, data, 30000);
+        applyInitialData(data);
       })
       .catch(err => {
         showToast('Gagal memuat data awal: ' + err.message, 'error');
       });
+  }
+
+  function applyInitialData(data) {
+    if (!data) return;
+
+    AppState.prefixList = Array.isArray(data.prefixList) && data.prefixList.length > 0 ? data.prefixList : ['3510071003'];
+    AppState.recentTransactions = Array.isArray(data.recentTransactions) ? data.recentTransactions : [];
+    AppState.blokList = Array.isArray(data.blokList) ? data.blokList : [];
+    AppState.kelompokList = Array.isArray(data.kelompokList) ? data.kelompokList : [];
+
+    if (typeof renderRecentSidebar === 'function') {
+      renderRecentSidebar();
+    }
+    if (typeof renderAdminBlokTable === 'function') {
+      renderAdminBlokTable();
+    }
+    if (typeof renderAdminKelompokTaniTable === 'function') {
+      renderAdminKelompokTaniTable();
+    }
+    if (typeof populateAdminBlokKelompokSelect === 'function') {
+      populateAdminBlokKelompokSelect();
+    }
+    if (typeof populateHistoriKelompokFilter === 'function') {
+      populateHistoriKelompokFilter();
+    }
   }
 
   function updateAuthUI() {
@@ -3133,9 +3242,10 @@
         saveBtn.innerHTML = `💾 Simpan Transaksi (POS)`;
 
         if (res.success) {
+          invalidateAppCaches(['initialData', 'lahan', 'dbwp', 'admin']);
           showToast(res.message, res.hasWarning ? 'warning' : 'success');
           resetPosForm();
-          loadInitialData(); // refresh recent transactions sidebar
+          loadInitialData();
 
           // Tampilkan ajakan dokumentasi foto langsung untuk idTransaksi yang baru dibuat
           const cta = document.getElementById('pos-doc-cta');
@@ -3217,6 +3327,22 @@
   }
 
   function loadUnifiedLahanData(forceRefresh) {
+    const cacheKey = 'lahanData';
+    const cachedEntry = getCachedAppData(cacheKey);
+    const now = Date.now();
+
+    if (!forceRefresh && cachedEntry && cachedEntry.data && (now - cachedEntry.fetchedAt) < 30000) {
+      try {
+        const cachedObj = cachedEntry.data;
+        LahanState.rawData = cachedObj.items || [];
+        populateHistoriKelompokFilter();
+        applyLahanFiltersAndRender();
+        return;
+      } catch (e) {
+        // fall through to fresh fetch
+      }
+    }
+
     if (LahanState.isLoading) return;
     LahanState.isLoading = true;
 
@@ -3246,6 +3372,8 @@
         }
 
         LahanState.rawData = res.items || [];
+        AppState.viewState.historiLoaded = true;
+        setCachedAppData(cacheKey, res, 30000);
         populateHistoriKelompokFilter();
         applyLahanFiltersAndRender();
         if (forceRefresh) {
@@ -4957,6 +5085,7 @@
 
   function loadAdminTabs() {
     if (!AppState.isSuperuser) return;
+    AppState.viewState.adminLoaded = true;
     loadDbwpAdmin();
     if (typeof renderAdminKelompokTaniTable === 'function') renderAdminKelompokTaniTable();
     if (typeof renderAdminBlokTable === 'function') renderAdminBlokTable();
@@ -4975,37 +5104,53 @@
     select.innerHTML = html;
   }
 
-  function loadDbwpAdmin() {
+  function loadDbwpAdmin(forceRefresh) {
     const tbody = document.getElementById('admin-dbwp-tbody');
     if (!tbody) return;
+
+    const cacheKey = 'dbwp';
+    const cachedEntry = getCachedAppData(cacheKey);
+    const now = Date.now();
+
+    if (!forceRefresh && cachedEntry && cachedEntry.data && (now - cachedEntry.fetchedAt) < 30000) {
+      renderDbwpTable(cachedEntry.data, tbody);
+      return;
+    }
 
     tbody.innerHTML = `<tr><td colspan="8">Memuat data dbwp...</td></tr>`;
     callGAS('getDbwpData', { limit: 500 }, 'POST')
       .then(rows => {
-        if (!rows || rows.length === 0) {
-          tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: var(--text-muted);">Belum ada data dbwp.</td></tr>`;
-          return;
-        }
-        tbody.innerHTML = rows.map(r => {
-          const coordHtml = r.koordinat
-            ? `<a href="https://www.google.com/maps?q=${encodeURIComponent(r.koordinat)}" target="_blank" rel="noopener" class="coord-map-link" title="${escapeHtml(r.koordinat)}">📍 Map</a>`
-            : `<span style="color: var(--text-muted); font-size: 0.75rem;">-</span>`;
-          return `
-          <tr>
-            <td>${r.no}</td>
-            <td><code>${escapeHtml(r.nop)}</code></td>
-            <td style="text-align: center;">${r.blok || '-'}</td>
-            <td style="text-align: center;">${r.bidang || '-'}</td>
-            <td>${escapeHtml(r.namaWP)}</td>
-            <td><small style="color: var(--text-secondary);">${escapeHtml(r.alamatWP)}</small></td>
-            <td style="text-align: right; font-family: monospace;">${(r.luasPBB || 0).toLocaleString('id-ID')} m²</td>
-            <td style="text-align: center; white-space: nowrap;">${coordHtml}</td>
-          </tr>`;
-        }).join('');
+        setCachedAppData(cacheKey, rows, 30000);
+        renderDbwpTable(rows, tbody);
       })
       .catch(err => {
         tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: var(--accent-rose);">Gagal memuat data dbwp: ${escapeHtml(err.message)}</td></tr>`;
       });
+  }
+
+  function renderDbwpTable(rows, tbody) {
+    if (!tbody) return;
+    if (!rows || rows.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: var(--text-muted);">Belum ada data dbwp.</td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = rows.map(r => {
+      const coordHtml = r.koordinat
+        ? `<a href="https://www.google.com/maps?q=${encodeURIComponent(r.koordinat)}" target="_blank" rel="noopener" class="coord-map-link" title="${escapeHtml(r.koordinat)}">📍 Map</a>`
+        : `<span style="color: var(--text-muted); font-size: 0.75rem;">-</span>`;
+      return `
+      <tr>
+        <td>${r.no}</td>
+        <td><code>${escapeHtml(r.nop)}</code></td>
+        <td style="text-align: center;">${r.blok || '-'}</td>
+        <td style="text-align: center;">${r.bidang || '-'}</td>
+        <td>${escapeHtml(r.namaWP)}</td>
+        <td><small style="color: var(--text-secondary);">${escapeHtml(r.alamatWP)}</small></td>
+        <td style="text-align: right; font-family: monospace;">${(r.luasPBB || 0).toLocaleString('id-ID')} m²</td>
+        <td style="text-align: center; white-space: nowrap;">${coordHtml}</td>
+      </tr>`;
+    }).join('');
   }
 
   function handleAddDbwp() {
@@ -5022,6 +5167,7 @@
     callGAS('addDbwpRow', { nop, blok, bidang, namaWP, alamatWP, luasPBB, koordinat }, 'POST')
       .then(res => {
         if (res.success) {
+          invalidateAppCaches(['dbwp', 'initialData', 'admin']);
           showToast(res.message, 'success');
           loadDbwpAdmin();
         } else {
@@ -5036,6 +5182,129 @@
   /* ============================================================
    * Toast System & Helpers
    * ============================================================ */
+  function openProductionSmokeModal() {
+    const modal = document.getElementById('production-smoke-modal');
+    if (modal) {
+      modal.style.display = 'flex';
+      runOneClickProductionSmokeTest();
+    }
+  }
+
+  function closeProductionSmokeModal() {
+    const modal = document.getElementById('production-smoke-modal');
+    if (modal) modal.style.display = 'none';
+  }
+
+  function renderSmokeRow(name, ok, details) {
+    const row = document.createElement('div');
+    row.style.border = '1px solid rgba(148,163,184,0.2)';
+    row.style.borderRadius = '10px';
+    row.style.padding = '10px 12px';
+    row.style.background = ok ? 'rgba(16,185,129,0.08)' : 'rgba(239,68,68,0.08)';
+    row.innerHTML = `
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:6px;">
+        <strong>${escapeHtml(name)}</strong>
+        <span style="font-size:12px; font-weight:700; color: ${ok ? 'var(--accent-emerald)' : 'var(--accent-rose)'};">
+          ${ok ? 'OK' : 'FAIL'}
+        </span>
+      </div>
+      <div style="font-size: 0.8rem; color: var(--text-secondary); white-space: pre-wrap;">${escapeHtml(details)}</div>
+    `;
+    return row;
+  }
+
+  function runOneClickProductionSmokeTest() {
+    const summaryEl = document.getElementById('production-smoke-summary');
+    const resultsEl = document.getElementById('production-smoke-results');
+    if (!summaryEl || !resultsEl) return;
+
+    resultsEl.innerHTML = '';
+    summaryEl.textContent = 'Menjalankan smoke test...';
+
+    const checks = [
+      {
+        name: 'getInitialAppData',
+        action: 'getInitialAppData',
+        method: 'GET',
+        validate: (payload) => {
+          if (!payload || typeof payload !== 'object') return 'Response bukan object';
+          if (!Array.isArray(payload.prefixList)) return 'prefixList harus array';
+          if (!Array.isArray(payload.recentTransactions)) return 'recentTransactions harus array';
+          return true;
+        }
+      },
+      {
+        name: 'getUnifiedLahanData',
+        action: 'getUnifiedLahanData',
+        method: 'POST',
+        validate: (payload) => {
+          if (!payload || typeof payload !== 'object') return 'Response bukan object';
+          if (payload.success !== true) return 'success harus true';
+          if (!Array.isArray(payload.items)) return 'items harus array';
+          return true;
+        }
+      },
+      {
+        name: 'getDbwpData',
+        action: 'getDbwpData',
+        method: 'POST',
+        params: { limit: 20 },
+        validate: (payload) => {
+          if (!Array.isArray(payload)) return 'Response harus array';
+          return true;
+        }
+      },
+      {
+        name: 'getSuperuserSession',
+        action: 'getSuperuserSession',
+        method: 'POST',
+        validate: (payload) => {
+          if (!payload || typeof payload !== 'object') return 'Response bukan object';
+          if (typeof payload.isLogged !== 'boolean') return 'isLogged harus boolean';
+          return true;
+        }
+      },
+      {
+        name: 'superuserLogin-invalid',
+        action: 'superuserLogin',
+        method: 'POST',
+        params: { username: 'fake-user', password: 'wrong-pass' },
+        validate: (payload) => {
+          if (!payload || typeof payload !== 'object') return 'Response bukan object';
+          if (payload.success !== false) return 'Credential salah harus gagal';
+          if (!payload.message) return 'message wajib ada';
+          return true;
+        }
+      }
+    ];
+
+    const runCheck = async () => {
+      const promises = checks.map(async (check) => {
+        try {
+          const result = await callGAS(check.action, check.params || {}, check.method);
+          const validation = check.validate(result);
+          const ok = validation === true;
+          resultsEl.appendChild(renderSmokeRow(check.name, ok, ok ? 'OK: ' + JSON.stringify(result).slice(0, 500) : String(validation)));
+          return ok;
+        } catch (err) {
+          resultsEl.appendChild(renderSmokeRow(check.name, false, 'ERROR: ' + (err && err.message ? err.message : String(err))));
+          return false;
+        }
+      });
+
+      const outcomes = await Promise.all(promises);
+      const passed = outcomes.filter(Boolean).length;
+      summaryEl.textContent = `Smoke test selesai: ${passed}/${checks.length} endpoint berhasil dipanggil dengan format yang benar.`;
+      if (passed !== checks.length) {
+        showToast('Beberapa smoke test gagal, cek detail di modal QA.', 'error');
+      } else {
+        showToast('Semua smoke test utama berhasil.', 'success');
+      }
+    };
+
+    runCheck();
+  }
+
   function showToast(message, type = 'info') {
     const container = document.getElementById('toast-container');
     if (!container) return;
