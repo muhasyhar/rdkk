@@ -1235,9 +1235,11 @@ function saveTransaksi(formData, token) {
     if (String(sheet.getRange(1, 18).getValue() || '').trim() !== 'Koordinat') {
       sheet.getRange(1, 18).setValue('Koordinat');
     }
-    // Pastikan header Kolom G (7) adalah 'Nomor Hp'
-    if (String(sheet.getRange(1, 7).getValue() || '').trim() !== 'Nomor Hp') {
-      sheet.getRange(1, 7).setValue('Nomor Hp');
+    // Pastikan header Kolom G (7) sesuai format yang umum dipakai: 'Nomor_Hp' / 'Nomor Hp'
+    const headerG = String(sheet.getRange(1, 7).getValue() || '').trim();
+    const normalizedHeaderG = headerG.replace(/[_\s]+/g, '').toLowerCase();
+    if (normalizedHeaderG !== 'nomorhp') {
+      sheet.getRange(1, 7).setValue('Nomor_Hp');
     }
 
     const rowsToInsert = validatedBidangs.map(b => [
@@ -3989,7 +3991,7 @@ function setupPendaftarRDKK(ss, forceReset) {
 
   const headers = [
     'ID_Transaksi', 'Tahun', 'Tanggal Input', 'NIK', 'Nama Petani', 'Alamat Petani',
-    'Nomor Hp',
+    'Nomor_Hp',
     'Blok', 'Nomor Bidang', 'NOP', 'Status NOP', 'Nama WP (ref)',
     'Luas PBB (ref)', 'Luas Didaftarkan', 'Sisa Luas PBB',
     'Status Transaksi', 'Keterangan', 'Input Oleh', 'Koordinat'
