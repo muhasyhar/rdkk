@@ -16,27 +16,27 @@
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap');
 
   :root {
-    --bg-primary: #0f172a;
-    --bg-surface: #1e293b;
-    --bg-surface-hover: #334155;
-    --bg-card: rgba(30, 41, 59, 0.7);
-    --border-color: rgba(255, 255, 255, 0.1);
-    --border-focus: #3b82f6;
+    --bg-primary: #f3fbf6;
+    --bg-surface: #ffffff;
+    --bg-surface-hover: #ecf9f0;
+    --bg-card: rgba(255, 255, 255, 0.96);
+    --border-color: rgba(20, 184, 109, 0.14);
+    --border-focus: #14b86d;
 
-    --text-primary: #f8fafc;
-    --text-secondary: #94a3b8;
-    --text-muted: #64748b;
+    --text-primary: #132b22;
+    --text-secondary: #3f5f53;
+    --text-muted: #72857d;
 
-    --accent-blue: #3b82f6;
-    --accent-blue-hover: #2563eb;
-    --accent-emerald: #10b981;
-    --accent-amber: #f59e0b;
-    --accent-rose: #f43f5e;
-    --accent-purple: #8b5cf6;
+    --accent-blue: #00aa5b;
+    --accent-blue-hover: #00914e;
+    --accent-emerald: #1dbf73;
+    --accent-amber: #f4b740;
+    --accent-rose: #ef5b5b;
+    --accent-purple: #6ddca1;
 
     --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.1);
-    --shadow-lg: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.12), 0 2px 4px -1px rgba(0, 0, 0, 0.08);
+    --shadow-lg: 0 10px 25px -5px rgba(0, 170, 91, 0.18);
 
     --radius-sm: 6px;
     --radius-md: 10px;
@@ -88,7 +88,7 @@
   }
 
   .brand-badge {
-    background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
+    background: linear-gradient(135deg, var(--accent-blue), #31c48d);
     color: white;
     padding: 4px 10px;
     border-radius: var(--radius-sm);
@@ -100,7 +100,7 @@
   .nav-tabs {
     display: flex;
     gap: 6px;
-    background: rgba(15, 23, 42, 0.5);
+    background: rgba(0, 170, 91, 0.06);
     padding: 4px;
     border-radius: var(--radius-md);
     border: 1px solid var(--border-color);
@@ -298,7 +298,7 @@
   .form-control:focus {
     outline: none;
     border-color: var(--accent-blue);
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+    box-shadow: 0 0 0 3px rgba(0, 170, 91, 0.16);
   }
 
   .form-row {
@@ -309,7 +309,7 @@
 
   /* POS Result Live Card */
   .info-box {
-    background: rgba(15, 23, 42, 0.6);
+    background: rgba(0, 170, 91, 0.06);
     border-left: 4px solid var(--accent-blue);
     border-radius: var(--radius-md);
     padding: 16px;
@@ -373,7 +373,7 @@
 
   .btn-primary:hover {
     background: var(--accent-blue-hover);
-    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+    box-shadow: 0 4px 12px rgba(0, 170, 91, 0.3);
   }
 
   .btn-emerald {
@@ -391,7 +391,7 @@
   }
 
   .btn-secondary:hover {
-    background: #475569;
+    background: #dfeee6;
   }
 
   .btn-danger {
@@ -749,8 +749,8 @@
   }
 
   .summary-pill {
-    background: rgba(59, 130, 246, 0.15);
-    border: 1px solid rgba(59, 130, 246, 0.3);
+    background: rgba(0, 170, 91, 0.1);
+    border: 1px solid rgba(0, 170, 91, 0.22);
     color: var(--accent-blue);
     padding: 4px 10px;
     border-radius: var(--radius-full);
@@ -1166,6 +1166,82 @@
   .modal-close-btn:hover {
     color: var(--text-primary);
   }
+
+  @media (max-width: 768px) {
+    .app-header {
+      padding: 12px 14px;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .brand {
+      font-size: 0.92rem;
+    }
+
+    .nav-tabs {
+      width: 100%;
+      overflow-x: auto;
+      justify-content: flex-start;
+    }
+
+    .nav-btn {
+      flex: 1 0 auto;
+      justify-content: center;
+      white-space: nowrap;
+    }
+
+    .app-content {
+      padding: 12px;
+    }
+
+    .pos-layout {
+      flex-direction: column;
+    }
+
+    .pos-sidebar {
+      width: 100%;
+      height: auto;
+      position: static;
+    }
+
+    .step-bar {
+      overflow-x: auto;
+      padding: 12px 14px;
+    }
+
+    .step-item {
+      min-width: 96px;
+    }
+
+    .form-row {
+      grid-template-columns: 1fr;
+    }
+
+    .metrics-strip {
+      padding: 10px 12px;
+    }
+
+    .metrics-kpi-row,
+    .metrics-calc-row {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+
+    .filter-chips-bar {
+      overflow-x: auto;
+      flex-wrap: nowrap;
+      padding-bottom: 4px;
+    }
+
+    .table-responsive {
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .data-table {
+      min-width: 1180px;
+    }
+  }
   </style>
 </head>
 <body>
@@ -1536,6 +1612,12 @@
                     <span class="th-filter-trigger" id="icon-filter-petani">▼</span>
                   </div>
                 </th>
+                <th class="sortable-th" onclick="openExcelFilterPopup('nomorHp', event)">
+                  <div class="th-content-wrapper">
+                    <span>Nomor HP</span>
+                    <span class="th-filter-trigger" id="icon-filter-nomorHp">▼</span>
+                  </div>
+                </th>
                 <th class="sortable-th" style="text-align: right;" onclick="openExcelFilterPopup('luasPBB', event)">
                   <div class="th-content-wrapper" style="justify-content: flex-end;">
                     <span>Luas PBB</span>
@@ -1565,7 +1647,7 @@
             </thead>
             <tbody id="histori-table-tbody">
               <tr>
-                <td colspan="11" style="text-align: center; color: var(--text-muted); padding: 30px;">
+                <td colspan="12" style="text-align: center; color: var(--text-muted); padding: 30px;">
                   Memuat data terpadu lahan e-RDKK...
                 </td>
               </tr>
@@ -3512,6 +3594,8 @@
         return item.namaWP || '-';
       case 'petani':
         return item.isTerdaftar ? (item.petani + (item.nik ? ' (' + item.nik + ')' : '')) : '- (Belum Terdaftar)';
+      case 'nomorHp':
+        return String(item.nomorHp || '').trim() || '-';
       case 'luasPBB':
         return Number(item.luasPBB || 0);
       case 'totalLuasDaftar':
@@ -3583,6 +3667,7 @@
       if (keyword) {
         const matchKey = String(r.nik || '').toLowerCase().includes(keyword) ||
                          String(r.petani || '').toLowerCase().includes(keyword) ||
+                         String(r.nomorHp || '').toLowerCase().includes(keyword) ||
                          String(r.namaWP || '').toLowerCase().includes(keyword) ||
                          String(r.alamatWP || '').toLowerCase().includes(keyword) ||
                          String(r.nop || '').toLowerCase().includes(keyword) ||
@@ -3662,7 +3747,7 @@
     }
 
     // Update active filter icons on TH
-    const colKeys = ['blokKelompok', 'bidangNop', 'namaWP', 'petani', 'luasPBB', 'totalLuasDaftar', 'koordinat', 'status'];
+    const colKeys = ['blokKelompok', 'bidangNop', 'namaWP', 'petani', 'nomorHp', 'luasPBB', 'totalLuasDaftar', 'koordinat', 'status'];
     colKeys.forEach(ck => {
       const icon = document.getElementById(`icon-filter-${ck}`);
       if (icon) {
@@ -3687,7 +3772,7 @@
     if (!data || data.length === 0) {
       tbody.innerHTML = `
         <tr>
-          <td colspan="11" style="text-align: center; color: var(--text-muted); padding: 36px;">
+          <td colspan="12" style="text-align: center; color: var(--text-muted); padding: 36px;">
             Tidak ada bidang lahan yang cocok dengan filter aktif.
           </td>
         </tr>
@@ -3823,6 +3908,7 @@
             <small style="color: var(--text-muted); font-size: 0.75rem;">${escapeHtml(item.alamatWP)}</small>
           </td>
           <td>${petaniHtml}</td>
+          <td>${escapeHtml(item.nomorHp || item.nomorHP || '-')}</td>
           <td style="text-align: right; font-family: monospace;">
             ${item.luasPBB.toLocaleString('id-ID')} m²
           </td>
@@ -4749,7 +4835,7 @@
 
   function buildExportHeaders() {
     return ['No', 'Blok', 'Kelompok Tani', 'Bidang', 'NOP', 'Nama WP (PBB)', 'Alamat WP',
-            'Petani Pendaftar', 'NIK Petani', 'Luas PBB (m²)', 'Luas Terdaftar (m²)',
+            'Petani Pendaftar', 'NIK Petani', 'Nomor HP', 'Luas PBB (m²)', 'Luas Terdaftar (m²)',
             'Status Bidang', 'Koordinat', 'Link Google Maps'];
   }
 
@@ -4770,6 +4856,7 @@
       item.alamatWP || '-',
       item.petani || '-',
       item.nik || '-',
+      item.nomorHp || item.nomorHP || '-',
       item.luasPBB || 0,
       item.totalLuasDaftar || 0,
       statusText,

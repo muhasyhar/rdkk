@@ -1894,10 +1894,12 @@ function searchTransaksi(queryObj) {
     if (filterStatus && statusTrx !== filterStatus) continue;
 
     if (keyword) {
+      const nomorHp = String(row[6] || '').trim();
       const matchKey = nik.toLowerCase().includes(keyword) ||
                        namaPetani.toLowerCase().includes(keyword) ||
                        nop.toLowerCase().includes(keyword) ||
-                       idTrx.toLowerCase().includes(keyword);
+                       idTrx.toLowerCase().includes(keyword) ||
+                       nomorHp.toLowerCase().includes(keyword);
       if (!matchKey) continue;
     }
 
@@ -2160,6 +2162,7 @@ function getUnifiedLahanData(params, token) {
         id: String(tr[0] || ''),
         nik: String(tr[3] || ''),
         nama: String(tr[4] || ''),
+        nomorHp: String(tr[6] || '').trim(),
         luas: luasDaftar
       });
     }
@@ -2249,9 +2252,15 @@ function getUnifiedLahanData(params, token) {
 
       let petaniStr = '-';
       let nikStr = '-';
+      let nomorHpStr = '-';
       if (activeInfo && activeInfo.petaniList && activeInfo.petaniList.length > 0) {
         petaniStr = activeInfo.petaniList.map(p => p.nama).join(', ');
         nikStr = activeInfo.petaniList.map(p => p.nik).join(', ');
+        nomorHpStr = activeInfo.petaniList
+          .map(p => p.nomorHp || '')
+          .filter(Boolean)
+          .join(', ');
+        if (!nomorHpStr) nomorHpStr = '-';
       }
 
       // Lookup koordinat dari coordMap
@@ -2280,6 +2289,7 @@ function getUnifiedLahanData(params, token) {
         isLuasBerlebih: isLuasBerlebih,
         petani: petaniStr,
         nik: nikStr,
+        nomorHp: nomorHpStr,
         petaniList: activeInfo ? activeInfo.petaniList : [],
         koordinat: koordinat
       });
@@ -3693,15 +3703,15 @@ function generatePrintableHTML(exportType, searchParams, token) {
     title = 'Data Transaksi Pendataan e-RDKK';
     headers = [
       'ID Transaksi', 'Tahun', 'Tanggal Input', 'NIK', 'Nama Petani', 'Alamat Petani',
-      'Blok', 'No Bidang', 'NOP', 'Status NOP', 'Nama WP (PBB)', 'Luas PBB',
+      'Nomor HP', 'Blok', 'No Bidang', 'NOP', 'Status NOP', 'Nama WP (PBB)', 'Luas PBB',
       'Luas Didaftarkan', 'Sisa Luas', 'Status Transaksi', 'Keterangan', 'Input Oleh'
     ];
     const dataTrx = searchTransaksi(searchParams || {});
     rows = dataTrx.map(t => [
       t.idTransaksi, t.tahun, t.tanggal, t.nik, t.namaPetani, t.alamatPetani,
-      t.blok, t.nomorBidang, t.nop, t.statusNOP, t.namaWP, (t.luasPBB || 0).toLocaleString('id-ID'),
-      (t.luasDidaftarkan || 0).toLocaleString('id-ID'), (t.sisaLuasPBB || 0).toLocaleString('id-ID'),
-      t.statusTransaksi, t.keterangan, t.inputOleh
+      t.nomorHp || t.nomorHP || '', t.blok, t.nomorBidang, t.nop, t.statusNOP, t.namaWP,
+      (t.luasPBB || 0).toLocaleString('id-ID'), (t.luasDidaftarkan || 0).toLocaleString('id-ID'),
+      (t.sisaLuasPBB || 0).toLocaleString('id-ID'), t.statusTransaksi, t.keterangan, t.inputOleh
     ]);
   }
 
