@@ -746,6 +746,28 @@ var CACHEABLE_REFERENCE_SHEETS = {
 var REFERENCE_CACHE_PREFIX = 'RDKK_SHEET_';
 var REFERENCE_CACHE_TTL_SECONDS = 60;
 
+function ensurePendaftarRDKKHeader(sheet) {
+  if (!sheet) return;
+
+  const maxCols = Math.max(sheet.getLastColumn(), 7);
+  const headers = sheet.getRange(1, 1, 1, maxCols).getValues()[0] || [];
+  const normalizedHeaders = headers.map(h => String(h || '').trim().replace(/[^a-z0-9]/gi, '').toLowerCase());
+  const targetIndex = 6;
+
+  const foundHeaderIndex = normalizedHeaders.findIndex(h => h === 'nomorhp' || h === 'nomorhptelpon');
+  const targetHeader = String(headers[targetIndex] || '').trim();
+  const normalizedTarget = targetHeader.replace(/[^a-z0-9]/gi, '').toLowerCase();
+
+  if (foundHeaderIndex >= 0 && String(headers[targetIndex] || '').trim() !== 'Nomor_Hp' && String(headers[targetIndex] || '').trim() !== 'Nomor Hp') {
+    sheet.getRange(1, targetIndex + 1).setValue('Nomor_Hp');
+    return;
+  }
+
+  if (normalizedTarget !== 'nomorhp' && foundHeaderIndex === -1) {
+    sheet.getRange(1, targetIndex + 1).setValue('Nomor_Hp');
+  }
+}
+
 function clearRequestCache() {
   _REQUEST_SHEET_CACHE = {};
 }
@@ -788,6 +810,10 @@ function getSheetData(sheetName) {
     const empty = { headers: [], data: [], sheet: null };
     _REQUEST_SHEET_CACHE[sheetName] = empty;
     return empty;
+  }
+
+  if (sheetName === 'Pendaftar_RDKK') {
+    ensurePendaftarRDKKHeader(sheet);
   }
 
   const lastRow = sheet.getLastRow();
@@ -1235,12 +1261,7 @@ function saveTransaksi(formData, token) {
     if (String(sheet.getRange(1, 18).getValue() || '').trim() !== 'Koordinat') {
       sheet.getRange(1, 18).setValue('Koordinat');
     }
-    // Pastikan header Kolom G (7) sesuai format yang umum dipakai: 'Nomor_Hp' / 'Nomor Hp'
-    const headerG = String(sheet.getRange(1, 7).getValue() || '').trim();
-    const normalizedHeaderG = headerG.replace(/[_\s]+/g, '').toLowerCase();
-    if (normalizedHeaderG !== 'nomorhp') {
-      sheet.getRange(1, 7).setValue('Nomor_Hp');
-    }
+    ensurePendaftarRDKKHeader(sheet);
 
     const rowsToInsert = validatedBidangs.map(b => [
       idTransaksi,        // A:1  = ID_Transaksi
