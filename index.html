@@ -65,9 +65,9 @@
 
   /* App Bar Header */
   .app-header {
-    background: var(--bg-surface);
+    background: rgba(255, 255, 255, 0.9);
     border-bottom: 1px solid var(--border-color);
-    padding: 12px 24px;
+    padding: 12px 22px;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -75,6 +75,7 @@
     top: 0;
     z-index: 100;
     backdrop-filter: blur(12px);
+    box-shadow: 0 1px 0 rgba(20, 184, 109, 0.04);
   }
 
   .brand {
@@ -127,9 +128,9 @@
   }
 
   .nav-btn.active {
-    background: var(--accent-blue);
+    background: linear-gradient(135deg, var(--accent-blue), #10b86a);
     color: white;
-    box-shadow: var(--shadow-sm);
+    box-shadow: 0 8px 20px rgba(0, 170, 91, 0.2);
   }
 
   .user-auth-section {
@@ -257,7 +258,7 @@
     background: var(--bg-surface);
     border: 1px solid var(--border-color);
     border-radius: var(--radius-lg);
-    padding: 24px;
+    padding: 22px;
     box-shadow: var(--shadow-md);
   }
 
@@ -277,28 +278,47 @@
 
   .form-group label {
     display: block;
-    font-size: 0.85rem;
-    font-weight: 600;
-    color: var(--text-secondary);
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: var(--text-primary);
     margin-bottom: 8px;
+    letter-spacing: -0.01em;
   }
 
   .form-control {
     width: 100%;
-    background: var(--bg-primary);
-    border: 1px solid var(--border-color);
+    background: linear-gradient(180deg, #ffffff 0%, #f9fefb 100%);
+    border: 1px solid rgba(20, 184, 109, 0.28);
     color: var(--text-primary);
-    padding: 12px 16px;
+    padding: 12px 14px;
     border-radius: var(--radius-md);
     font-size: 1rem;
     font-family: inherit;
     transition: var(--transition-fast);
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.02);
+    -webkit-text-fill-color: var(--text-primary);
+  }
+
+  .form-control::placeholder {
+    color: #7d948a;
+    opacity: 1;
   }
 
   .form-control:focus {
     outline: none;
-    border-color: var(--accent-blue);
-    box-shadow: 0 0 0 3px rgba(0, 170, 91, 0.16);
+    border-color: var(--border-focus);
+    background: #ffffff;
+    box-shadow: 0 0 0 3px rgba(0, 170, 91, 0.16), inset 0 1px 2px rgba(0, 0, 0, 0.02);
+  }
+
+  input:-webkit-autofill,
+  input:-webkit-autofill:hover,
+  input:-webkit-autofill:focus,
+  select:-webkit-autofill,
+  textarea:-webkit-autofill {
+    -webkit-text-fill-color: var(--text-primary);
+    transition: background-color 5000s ease-in-out 0s;
+    box-shadow: 0 0 0 1000px #ffffff inset;
   }
 
   .form-row {
