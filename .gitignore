@@ -1,1 +1,11 @@
+# Infra & deploy config (dikelola di repo privat rdkk-backend)
 .wrangler/
+.kilo/
+.clasp.json
+.claspignore
+appsscript.json
+wrangler.jsonc
+.pagesignore
+browser-smoke-test.html
+production-smoke-test.html
+REGISTRY.md
