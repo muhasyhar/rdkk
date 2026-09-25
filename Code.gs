@@ -1395,6 +1395,7 @@ function getTransaksiDetails(idTransaksi, token) {
       nik: base.nik,
       namaPetani: base.namaPetani,
       alamatPetani: base.alamatPetani,
+      nomorHp: base.nomorHp,
       tanggal: base.tanggal,
       inputOleh: base.inputOleh,
       bidangs: matchingRows

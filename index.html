@@ -32,7 +32,7 @@
     --accent-emerald: #1dbf73;
     --accent-amber: #f4b740;
     --accent-rose: #ef5b5b;
-    --accent-purple: #6ddca1;
+    --accent-purple: #0e9260;
 
     --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
     --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.12), 0 2px 4px -1px rgba(0, 0, 0, 0.08);
@@ -787,7 +787,7 @@
 
   .badge-warning {
     background: rgba(245, 158, 11, 0.15);
-    color: var(--accent-amber);
+    color: #a05a00;
     border: 1px solid rgba(245, 158, 11, 0.3);
   }
 
@@ -1098,7 +1098,7 @@
 
   /* Multi-Bidang Repeater Card */
   .bidang-card {
-    background: rgba(15, 23, 42, 0.45);
+    background: transparent;
     border: 1px solid var(--border-color);
     border-radius: var(--radius-md);
     padding: 16px;
@@ -1123,7 +1123,7 @@
   .bidang-title {
     font-size: 0.9rem;
     font-weight: 700;
-    color: var(--accent-blue);
+    color: #0b7a4a;
     display: flex;
     align-items: center;
     gap: 8px;
@@ -3729,7 +3729,7 @@
     if (registrations && registrations.length > 0) {
       const regList = registrations.map(r => `${escapeHtml(r.namaPetani)} (${r.luasDidaftarkan} m²)`).join(', ');
       warningHtml = `
-        <div style="margin-top: 8px; font-size: 0.78rem; color: var(--accent-amber);">
+        <div style="margin-top: 8px; font-size: 0.78rem; color: #b97c06;">
           ⚠️ <strong>NOP terdaftar atas:</strong> ${regList}
         </div>
       `;
@@ -3738,7 +3738,7 @@
     if (!nopInfo.found) {
       return `
         <div class="info-box warning" style="margin-top: 6px; padding: 10px;">
-          <strong style="color: var(--accent-amber); font-size: 0.85rem;">NOP ${nopStr} (Tidak Ditemukan di dbwp)</strong>
+          <strong style="color: #b97c06; font-size: 0.85rem;">NOP ${nopStr} (Tidak Ditemukan di dbwp)</strong>
           <p style="font-size: 0.78rem; color: var(--text-secondary); margin-top: 2px;">
             Bidang baru / belum tercatat di data PBB. Transaksi tetap dapat disimpan.
           </p>
@@ -3760,7 +3760,7 @@
           </div>
           <div class="info-item">
             <span class="label">Sisa Sebelum</span>
-            <span class="value" style="font-size: 0.95rem; color: ${sisaLuas < 0 ? 'var(--accent-rose)' : 'var(--accent-emerald)'};">
+            <span class="value" style="font-size: 0.95rem; color: ${sisaLuas < 0 ? '#c13e4c' : '#0b7a4a'};">
               ${sisaLuas.toLocaleString('id-ID')} m²
             </span>
           </div>
@@ -3770,7 +3770,7 @@
           </div>
           <div class="info-item">
             <span class="label">Sisa Akhir</span>
-            <span class="value" style="font-size: 0.95rem; color: ${isOver ? 'var(--accent-rose)' : 'var(--accent-emerald)'};">
+            <span class="value" style="font-size: 0.95rem; color: ${isOver ? '#c13e4c' : '#0b7a4a'};">
               ${sisaAkhir.toLocaleString('id-ID')} m²
             </span>
           </div>
