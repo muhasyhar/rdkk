@@ -2716,6 +2716,7 @@
         }
         if (res && res.success) {
           showToast(res.message, 'success');
+          invalidateSmartCache();
           loadDbwpAdmin();
         } else {
           showToast((res && res.message) || 'Gagal menyinkronkan dbwp-banding', 'error');
@@ -2752,6 +2753,7 @@
         }
         if (res && res.success) {
           showToast(res.message, 'success');
+          invalidateSmartCache();
         } else {
           showToast((res && res.message) || 'Gagal sinkronisasi koordinat', 'error');
         }
@@ -2868,6 +2870,7 @@
       showToast(res.message, res.success ? 'success' : 'error');
       if (res.success) {
         closeKelompokModal();
+        invalidateSmartCache();
         loadInitialData();
       }
     }
@@ -2886,6 +2889,7 @@
       .then(res => {
         showToast(res.message, res.success ? 'success' : 'error');
         if (res.success) {
+          invalidateSmartCache();
           loadInitialData();
         }
       })
@@ -2961,6 +2965,7 @@
         showToast(res.message, res.success ? 'success' : 'error');
         if (res.success) {
           resetBlokForm();
+          invalidateSmartCache();
           loadInitialData();
         }
       })
@@ -3010,6 +3015,7 @@
         showToast(res.message, res.success ? 'success' : 'error');
         if (res.success) {
           resetBlokForm();
+          invalidateSmartCache();
           loadInitialData();
         }
       })
@@ -3087,6 +3093,7 @@
     ])
       .then(() => {
         showToast('Konfigurasi berhasil diperbarui!', 'success');
+        invalidateSmartCache();
         loadInitialData();
       })
       .catch(err => {
@@ -3225,9 +3232,10 @@
       lahan: 'lahanData',
       initial: 'initialData',
       dbwp: 'dbwp',
-      admin: 'admin'
+      admin: 'admin',
+      smart: 'smartSnapshot'
     };
-    const requested = Array.isArray(keys) ? keys : ['initialData', 'lahanData', 'dbwp', 'admin'];
+    const requested = Array.isArray(keys) ? keys : ['initialData', 'lahanData', 'dbwp', 'admin', 'smartSnapshot'];
     const cacheKeys = [...new Set(requested.map((key) => aliases[key] || key))];
 
     cacheKeys.forEach((key) => {
@@ -3247,6 +3255,405 @@
     }
   }
 
+  /* ============================================================
+   * Smart Cache — Snapshot data POS & Edit dilayani dari memori
+   * ============================================================
+   * Satu panggilan `getPosSnapshot` (backend membaca tiap sheet satu
+   * kali) mengisi: master NOP, total pendaftar aktif per NOP, dan
+   * master NIK. Setelah itu setiap lookup NOP/NIK di form POS maupun
+   * modal edit dicocokkan ke cache lokal secara sinkron — tidak ada
+   * request ke GSheet per ketikan.
+   *
+   * Bundle ini juga bertahan (survive) saat refresh lewat localStorage, dan
+   * diverifikasi ulang diam-diam di latar belakang — memakai pola
+   * stale-while-revalidate, sehingga input operator tidak pernah menunggu
+   * jaringan. Cache juga dipatch lokal setiap kali ada transaksi baru.
+   *
+   * Refresh async memakai probe LIGHT: backend hanya memeriksa dua sheet
+   * dinamis (`Pendaftar_RDKK`, `dbwp-banding`). Sheet `dbwp` & `penduduk`
+   * bersifat statis dan hanya dibaca ulang saat ganti sesi (build penuh di
+   * boot / invalidasi pasca-tulis) atau bila probe mendeteksi perubahan.
+   * ============================================================ */
+  const SMART_CACHE_TTL_MS = 90 * 1000;
+  const SMART_CACHE_MAX_AGE_MS = 20 * 60 * 1000;
+  const SMART_CACHE_STORAGE_KEY = 'smartSnapshot';
+  const SMART_CACHE_WAIT_MS = 8000;
+
+  const SmartCache = {
+    ready: false,
+    loading: false,
+    loadedAt: 0,
+    generatedAt: 0,
+    stamp: '',
+    nops: {},
+    regs: {},
+    niks: {},
+    notFound: {},
+    config: {},
+    prefixList: [],
+    stats: { cacheHit: 0, cacheMiss: 0, network: 0, patch: 0 },
+    _pending: null,
+    _waiters: [],
+    _timer: null,
+    _refreshTimer: null
+  };
+
+  function smartCacheNopKey(nop) {
+    return String(nop || '').replace(/[^0-9]/g, '');
+  }
+
+  function smartCacheIsFresh() {
+    return SmartCache.ready && (Date.now() - SmartCache.loadedAt) < SMART_CACHE_TTL_MS;
+  }
+
+  function smartCacheIsUsable() {
+    return SmartCache.ready && (Date.now() - SmartCache.loadedAt) < SMART_CACHE_MAX_AGE_MS;
+  }
+
+  function applySmartCacheSnapshot(snapshot, fetchedAt) {
+    if (!snapshot || !snapshot.success) return false;
+    if (!snapshot.nops || !snapshot.regs || !snapshot.niks) return false;
+
+    SmartCache.nops = snapshot.nops;
+    SmartCache.regs = snapshot.regs;
+    SmartCache.niks = snapshot.niks;
+    SmartCache.config = snapshot.config || {};
+    SmartCache.prefixList = Array.isArray(snapshot.prefixList) ? snapshot.prefixList : [];
+    SmartCache.generatedAt = snapshot.generatedAt || 0;
+    SmartCache.stamp = snapshot.stamp || '';
+    SmartCache.loadedAt = fetchedAt || Date.now();
+    SmartCache.ready = true;
+    SmartCache.notFound = {};
+
+    // Metadata statis (jarang tersentuh transaksi) ikut disinkronkan dari
+    // snapshot: Pengaturan_Blok → blokList (badge kelompok POS, admin blok),
+    // Kelompok_Tani → kelompokList (filter histori). Membuat UI kebal terhadap
+    // getInitialAppData yang lambat/gagal — dua sheet ini di-cache server 60s.
+    if (Array.isArray(snapshot.prefixList) && snapshot.prefixList.length > 0) {
+      AppState.prefixList = snapshot.prefixList;
+    }
+    if (Array.isArray(snapshot.blokList)) {
+      AppState.blokList = snapshot.blokList;
+      (AppState.pos.bidangs || []).forEach(b => {
+        const badgeEl = document.getElementById('pos-blok-kelompok-' + b.id);
+        if (badgeEl) badgeEl.innerHTML = getKelompokBadgeByBlok(b.blok);
+      });
+      if (typeof renderAdminBlokTable === 'function') renderAdminBlokTable();
+    }
+    if (Array.isArray(snapshot.kelompokList) && snapshot.kelompokList.length > 0) {
+      AppState.kelompokList = snapshot.kelompokList;
+      if (typeof populateHistoriKelompokFilter === 'function') populateHistoriKelompokFilter();
+      if (typeof renderAdminKelompokTaniTable === 'function') renderAdminKelompokTaniTable();
+    }
+
+    // Persist hanya bila data benar-benar berubah (hindari tulis berulang
+    // pada auto-refresh di mana sekuel sheetnya sama dengan snapshot lama).
+    const prevStored = getCachedAppData(SMART_CACHE_STORAGE_KEY);
+    const unchanged = prevStored && prevStored.data
+      && prevStored.data.stamp
+      && String(prevStored.data.stamp) === String(snapshot.stamp || '');
+    if (!unchanged) {
+      try {
+        setCachedAppData(SMART_CACHE_STORAGE_KEY, {
+          success: true,
+          generatedAt: snapshot.generatedAt || 0,
+          stamp: snapshot.stamp || '',
+          prefixList: snapshot.prefixList || [],
+          config: snapshot.config || {},
+          blokList: snapshot.blokList,
+          kelompokList: snapshot.kelompokList,
+          nops: snapshot.nops,
+          regs: snapshot.regs,
+          niks: snapshot.niks
+        }, SMART_CACHE_MAX_AGE_MS);
+      } catch (e) {
+        // localStorage penuh / tidak tersedia — cache tetap hidup di memori.
+      }
+    }
+    return true;
+  }
+
+  function restoreSmartCacheFromStorage() {
+    if (SmartCache.ready) return false;
+    const stored = getCachedAppData(SMART_CACHE_STORAGE_KEY);
+    if (!stored || !stored.data) return false;
+    if ((Date.now() - stored.fetchedAt) > SMART_CACHE_MAX_AGE_MS) return false;
+    return applySmartCacheSnapshot(stored.data, stored.fetchedAt);
+  }
+
+  function loadSmartCache(force) {
+    if (!force && smartCacheIsFresh()) return Promise.resolve(true);
+    if (SmartCache.loading && SmartCache._pending) return SmartCache._pending;
+
+    if (!force && !SmartCache.ready) restoreSmartCacheFromStorage();
+    if (!force && smartCacheIsFresh()) return Promise.resolve(true);
+
+    SmartCache.loading = true;
+
+    SmartCache._pending = callGAS('getPosSnapshot', {}, 'POST')
+      .then(res => {
+        const applied = applySmartCacheSnapshot(res, Date.now());
+        SmartCache.loading = false;
+        if (applied && Array.isArray(res.prefixList) && res.prefixList.length > 0) {
+          AppState.prefixList = res.prefixList;
+        }
+        SmartCache._waiters.splice(0).forEach(fn => { try { fn(true); } catch (e) {} });
+        return applied;
+      })
+      .catch(err => {
+        SmartCache.loading = false;
+        SmartCache._waiters.splice(0).forEach(fn => { try { fn(false); } catch (e) {} });
+        console.warn('Smart cache gagal dimuat:', err && err.message ? err.message : err);
+        return false;
+      });
+
+    return SmartCache._pending;
+  }
+
+  function waitForSmartCache(timeoutMs) {
+    if (SmartCache.ready) return Promise.resolve(SmartCache.ready);
+    if (!SmartCache._pending) return Promise.resolve(false);
+
+    return new Promise(resolve => {
+      let done = false;
+      const finish = (value) => {
+        if (done) return;
+        done = true;
+        resolve(value);
+      };
+      const timer = setTimeout(() => finish(SmartCache.ready), timeoutMs || SMART_CACHE_WAIT_MS);
+      SmartCache._waiters.push(() => {
+        clearTimeout(timer);
+        finish(SmartCache.ready);
+      });
+    });
+  }
+
+  function getSmartNopInfo(nop) {
+    const digits = smartCacheNopKey(nop);
+    if (!digits) return null;
+
+    const master = SmartCache.nops[digits] || SmartCache.nops[digits.substring(0, 17)] || null;
+    const reg = SmartCache.regs[digits] || SmartCache.regs[digits.substring(0, 17)] || null;
+    const totalTerdaftar = reg ? Number(reg.total) || 0 : 0;
+    const luasPBB = master ? Number(master.luasPBB) || 0 : 0;
+
+    return {
+      nopInfo: master
+        ? {
+            found: true,
+            nop: master.nop,
+            blok: Number(master.blok) || 0,
+            bidang: Number(master.bidang) || 0,
+            namaWP: master.namaWP || '',
+            alamatWP: master.alamatWP || '',
+            luasPBB: luasPBB,
+            koordinat: master.koordinat || ''
+          }
+        : {
+            found: false,
+            nop: String(nop || '').trim(),
+            blok: 0,
+            bidang: 0,
+            namaWP: '-',
+            alamatWP: '-',
+            luasPBB: 0,
+            koordinat: ''
+          },
+      totalTerdaftar: totalTerdaftar,
+      sisaLuas: luasPBB - totalTerdaftar,
+      registrations: reg ? (reg.list || []) : [],
+      koordinat: master ? (master.koordinat || '') : ''
+    };
+  }
+
+  function getSmartNik(nik) {
+    const key = String(nik || '').trim();
+    if (!key) return null;
+    const entry = SmartCache.niks[key];
+    if (!entry) return null;
+    return {
+      found: true,
+      source: entry.source || 'histori',
+      nama: entry.nama || '',
+      alamat: entry.alamat || '',
+      historyCount: Number(entry.historyCount) || 0
+    };
+  }
+
+  function resolveNopInfo(nop) {
+    const digits = smartCacheNopKey(nop);
+    if (smartCacheIsUsable()) {
+      const hit = getSmartNopInfo(nop);
+      const hasMaster = hit && hit.nopInfo.found;
+      const hasReg = hit && hit.registrations.length > 0;
+      const recentNegative = SmartCache.notFound[digits] && (Date.now() - SmartCache.notFound[digits]) < SMART_CACHE_TTL_MS;
+      if (hasMaster || hasReg || recentNegative || (digits.length < 10)) {
+        SmartCache.stats.cacheHit++;
+        return Promise.resolve(hit);
+      }
+      SmartCache.stats.cacheMiss++;
+    }
+
+    return waitForSmartCache().then(() => {
+      if (smartCacheIsUsable()) {
+        const hit = getSmartNopInfo(nop);
+        if (hit && (hit.nopInfo.found || hit.registrations.length > 0)) {
+          SmartCache.stats.cacheHit++;
+          return hit;
+        }
+      }
+      return fetchNopInfoFromServer(nop);
+    });
+  }
+
+  function fetchNopInfoFromServer(nop) {
+    SmartCache.stats.network++;
+    return callGAS('getNOPInfoAndSisaLuas', { nop: nop }, 'POST').then(result => {
+      const digits = smartCacheNopKey(nop);
+      if (result && digits) {
+        if (result.nopInfo && result.nopInfo.found) {
+          SmartCache.nops[digits] = {
+            nop: result.nopInfo.nop,
+            blok: result.nopInfo.blok,
+            bidang: result.nopInfo.bidang,
+            namaWP: result.nopInfo.namaWP,
+            alamatWP: result.nopInfo.alamatWP,
+            luasPBB: result.nopInfo.luasPBB,
+            koordinat: result.nopInfo.koordinat || result.koordinat || ''
+          };
+        }
+        if (typeof result.totalTerdaftar === 'number') {
+          SmartCache.regs[digits] = {
+            total: result.totalTerdaftar,
+            list: Array.isArray(result.registrations) ? result.registrations : []
+          };
+        }
+        if (result.nopInfo && !result.nopInfo.found) {
+          SmartCache.notFound[digits] = Date.now();
+        }
+      }
+      return result;
+    });
+  }
+
+  function resolveNikInfo(nik) {
+    const key = String(nik || '').trim();
+    if (!key) return Promise.resolve({ found: false, source: '', nama: '', alamat: '', historyCount: 0 });
+
+    if (smartCacheIsUsable()) {
+      const hit = getSmartNik(key);
+      if (hit) {
+        SmartCache.stats.cacheHit++;
+        return Promise.resolve(hit);
+      }
+      SmartCache.stats.cacheMiss++;
+    }
+
+    return waitForSmartCache().then(() => {
+      const hit = getSmartNik(key);
+      if (hit) {
+        SmartCache.stats.cacheHit++;
+        return hit;
+      }
+      SmartCache.stats.network++;
+      return callGAS('lookupPendudukByNIK', { nik: key }, 'POST').then(res => {
+        if (res && res.found) {
+          SmartCache.niks[key] = {
+            nama: res.nama || '',
+            alamat: res.alamat || '',
+            source: res.source || 'histori',
+            historyCount: Number(res.historyCount) || 0
+          };
+        }
+        return res || { found: false, source: '', nama: '', alamat: '', historyCount: 0 };
+      });
+    });
+  }
+
+  function patchSmartCacheAfterSave(nik, nama, alamat, bidangs) {
+    const nikKey = String(nik || '').trim();
+    if (nikKey) {
+      const existing = SmartCache.niks[nikKey];
+      SmartCache.niks[nikKey] = {
+        nama: nama || (existing ? existing.nama : ''),
+        alamat: alamat || (existing ? existing.alamat : ''),
+        source: existing && existing.source ? existing.source : 'histori',
+        historyCount: (existing ? Number(existing.historyCount) || 0 : 0) + (bidangs || []).length
+      };
+    }
+
+    (bidangs || []).forEach(b => {
+      const digits = smartCacheNopKey(b.generatedNOP || b.nop);
+      if (!digits) return;
+      if (!SmartCache.regs[digits]) SmartCache.regs[digits] = { total: 0, list: [] };
+      delete SmartCache.notFound[digits];
+      const entry = SmartCache.regs[digits];
+      const luas = Number(b.luasDidaftarkan) || 0;
+      entry.total = (Number(entry.total) || 0) + luas;
+      entry.list.push({
+        idTransaksi: b.idTransaksi || '',
+        nik: nikKey,
+        namaPetani: nama || '',
+        luasDidaftarkan: luas,
+        statusTransaksi: 'Aktif'
+      });
+    });
+
+    SmartCache.stats.patch++;
+  }
+
+  function invalidateSmartCache() {
+    if (SmartCache._refreshTimer) clearTimeout(SmartCache._refreshTimer);
+    SmartCache._refreshTimer = setTimeout(() => { loadSmartCache(true); }, 800);
+  }
+
+  /**
+   * Probe ringan untuk refresh async: backend hanya membaca dua sheet yang
+   * berubah saat transaksi (Pendaftar_RDKK & dbwp-banding) lewat mode
+   * `sync:'light'`. Sheet dbwp & penduduk bersifat STATIS — hanya di-cek
+   * saat ganti sesi (build penuh di boot) atau saat probe mendeteksi
+   * perubahan pada dua sheet dinamis. Bila tidak ada perubahan, snapshot
+   * lokal tetap dipakai (tidak ada muatan penuh / read ulang GSheet besar).
+   */
+  function smartCacheLightProbe() {
+    return callGAS('getPosSnapshot', { sync: 'light' }, 'POST')
+      .then(res => {
+        if (!res || !res.success) {
+          return loadSmartCache(true).then(() => ({ refresh: true }));
+        }
+        if (res.changed === false) {
+          SmartCache.loadedAt = Date.now();
+          return { refresh: false };
+        }
+        // Server mendeteksi perubahan dan sudah membangun ulang snapshot
+        // penuh -> terapkan apa adanya (tanpa request kedua).
+        const applied = applySmartCacheSnapshot(res, Date.now());
+        if (applied) {
+          if (Array.isArray(res.prefixList) && res.prefixList.length > 0) {
+            AppState.prefixList = res.prefixList;
+          }
+          SmartCache._waiters.splice(0).forEach(fn => { try { fn(true); } catch (e) {} });
+          return { refresh: true };
+        }
+        return loadSmartCache(true).then(() => ({ refresh: true }));
+      })
+      .catch(() => loadSmartCache(true).then(() => ({ refresh: true })));
+  }
+
+  function startSmartCacheAutoRefresh() {
+    if (SmartCache._timer) clearInterval(SmartCache._timer);
+    SmartCache._timer = setInterval(() => {
+      if (document.hidden) return;
+      if (!smartCacheIsFresh()) smartCacheLightProbe();
+    }, SMART_CACHE_TTL_MS);
+
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden && !smartCacheIsFresh()) smartCacheLightProbe();
+    });
+    window.addEventListener('online', () => { if (!smartCacheIsFresh()) smartCacheLightProbe(); });
+  }
+
   // DOM Elements Initializer
   document.addEventListener('DOMContentLoaded', () => {
     initApp();
@@ -3259,6 +3666,9 @@
     hydrateAuthFromToken();
     loadInitialData();
     setupPosListeners();
+    restoreSmartCacheFromStorage();
+    startSmartCacheAutoRefresh();
+    loadSmartCache(true);
   }
 
   /**
@@ -3514,6 +3924,7 @@
       nomorBidang: '',
       generatedNOP: '',
       nopInfo: null,
+      nopInfoFromCache: false,
       luasDidaftarkan: '',
       keterangan: '',
       koordinat: ''
@@ -3580,7 +3991,7 @@
 
           <!-- NOP Info Card Bidang Ini -->
           <div id="nop-info-card-${b.id}" style="${b.nopInfo ? 'display: block;' : 'display: none;'} margin-top: 4px;">
-            ${b.nopInfo ? getRenderedNopInfoHtml(b.nopInfo, b.generatedNOP, b.luasDidaftarkan) : ''}
+            ${b.nopInfo ? getRenderedNopInfoHtml(b.nopInfo, b.generatedNOP, b.luasDidaftarkan, b.nopInfoFromCache) : ''}
           </div>
 
           <div class="form-row" style="margin-top: 10px;">
@@ -3659,42 +4070,26 @@
     item.generatedNOP = nopStr;
 
     const infoBox = document.getElementById(`nop-info-card-${bId}`);
+
+    // Smart cache: NOP yang sudah ada di snapshot langsung dicocokkan dari
+    // memori (sinkron, tanpa spinner). Fallback ke server hanya bila NOP
+    // belum dikenal oleh cache.
+    const cached = getSmartNopInfo(nopStr);
+    if (cached && (cached.nopInfo.found || cached.registrations.length > 0)) {
+      SmartCache.stats.cacheHit++;
+      applyPosNopInfo(bId, cached, true, nopStr);
+      return;
+    }
+
     if (infoBox) {
       infoBox.style.display = 'block';
       infoBox.className = 'info-box';
       infoBox.innerHTML = `<span style="font-size: 0.8rem; color: var(--text-muted);">Mengecek data NOP ${nopStr}...</span>`;
     }
 
-    callGAS('getNOPInfoAndSisaLuas', { nop: nopStr }, 'POST')
+    resolveNopInfo(nopStr)
       .then(result => {
-        item.nopInfo = result;
-
-        // Auto pre-fill Luas Didaftarkan jika masih kosong atau bernilai 0
-        if ((!item.luasDidaftarkan || Number(item.luasDidaftarkan) <= 0) && result && result.nopInfo && result.nopInfo.found) {
-          const defaultLuas = result.nopInfo.luasPBB;
-          if (defaultLuas > 0) {
-            item.luasDidaftarkan = defaultLuas;
-            const luasEl = document.getElementById(`pos-luas-${bId}`);
-            if (luasEl && (!luasEl.value || Number(luasEl.value) <= 0)) {
-              luasEl.value = defaultLuas;
-              if (document.activeElement === luasEl) {
-                luasEl.select();
-              }
-            }
-          }
-        }
-
-        // Auto pre-fill Koordinat dari dbwp (kolom Koordinat) jika input belum diisi
-        if (result && result.koordinat && (!item.koordinat || item.koordinat.trim() === '')) {
-          item.koordinat = result.koordinat;
-          const coordEl = document.getElementById(`pos-koordinat-${bId}`);
-          if (coordEl && !coordEl.value) {
-            coordEl.value = result.koordinat;
-          }
-        }
-
-        updatePosBidangCardPreview(bId);
-        updatePosOverallSummary();
+        applyPosNopInfo(bId, result, false, nopStr);
       })
       .catch(err => {
         if (infoBox) {
@@ -3702,6 +4097,43 @@
           infoBox.innerHTML = `<span style="font-size: 0.8rem; color: var(--accent-rose);">Gagal memuat data NOP ${nopStr}: ${escapeHtml(err.message)}</span>`;
         }
       });
+  }
+
+  function applyPosNopInfo(bId, result, fromCache, nopStr) {
+    const item = AppState.pos.bidangs.find(b => b.id === bId);
+    if (!item || !result) return;
+    // Abaikan respons yang sudah basi (operator masih mengubah blok/bidang).
+    if (nopStr && item.generatedNOP !== nopStr) return;
+
+    item.nopInfo = result;
+    item.nopInfoFromCache = !!fromCache;
+
+    // Auto pre-fill Luas Didaftarkan jika masih kosong atau bernilai 0
+    if ((!item.luasDidaftarkan || Number(item.luasDidaftarkan) <= 0) && result && result.nopInfo && result.nopInfo.found) {
+      const defaultLuas = result.nopInfo.luasPBB;
+      if (defaultLuas > 0) {
+        item.luasDidaftarkan = defaultLuas;
+        const luasEl = document.getElementById(`pos-luas-${bId}`);
+        if (luasEl && (!luasEl.value || Number(luasEl.value) <= 0)) {
+          luasEl.value = defaultLuas;
+          if (document.activeElement === luasEl) {
+            luasEl.select();
+          }
+        }
+      }
+    }
+
+    // Auto pre-fill Koordinat dari dbwp (kolom Koordinat) jika input belum diisi
+    if (result && result.koordinat && (!item.koordinat || item.koordinat.trim() === '')) {
+      item.koordinat = result.koordinat;
+      const coordEl = document.getElementById(`pos-koordinat-${bId}`);
+      if (coordEl && !coordEl.value) {
+        coordEl.value = result.koordinat;
+      }
+    }
+
+    updatePosBidangCardPreview(bId);
+    updatePosOverallSummary();
   }
 
   function updatePosBidangCardPreview(bId) {
@@ -3717,13 +4149,16 @@
     }
 
     infoBox.style.display = 'block';
-    infoBox.innerHTML = getRenderedNopInfoHtml(item.nopInfo, item.generatedNOP, item.luasDidaftarkan);
+    infoBox.innerHTML = getRenderedNopInfoHtml(item.nopInfo, item.generatedNOP, item.luasDidaftarkan, item.nopInfoFromCache);
   }
 
-  function getRenderedNopInfoHtml(nopData, nopStr, inputLuas) {
+  function getRenderedNopInfoHtml(nopData, nopStr, inputLuas, fromCache) {
     const { nopInfo, totalTerdaftar, sisaLuas, registrations } = nopData;
     const luasInput = parseFloat(inputLuas) || 0;
     const sisaAkhir = sisaLuas - luasInput;
+    const cacheTag = fromCache
+      ? '<span title="Dilayani dari smart cache (tanpa query ulang ke GSheet)" style="font-size: 0.65rem; font-weight: 600; color: var(--accent-emerald); background: rgba(16,185,129,0.12); border: 1px solid rgba(16,185,129,0.35); border-radius: 4px; padding: 1px 5px; margin-left: 6px;">⚡ CACHE</span>'
+      : '';
 
     let warningHtml = '';
     if (registrations && registrations.length > 0) {
@@ -3750,7 +4185,7 @@
     return `
       <div class="info-box ${isOver ? 'danger' : ''}" style="margin-top: 6px; padding: 10px;">
         <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.8rem; font-weight: 700; color: var(--accent-blue);">
-          <span>NOP: ${nopStr}</span>
+          <span>NOP: ${nopStr}${cacheTag}</span>
           <span>WP: ${escapeHtml(nopInfo.namaWP)}</span>
         </div>
         <div class="info-grid" style="margin-top: 6px;">
@@ -3876,44 +4311,60 @@
     badge.style.display = 'block';
     badge.innerHTML = `<span style="color: var(--text-muted);">Mengecek data NIK...</span>`;
 
-    callGAS('lookupPendudukByNIK', { nik: nik }, 'POST')
-      .then(res => {
-        const inputNama = document.getElementById('pos-nama-petani');
-        const inputAlamat = document.getElementById('pos-alamat-petani');
+    // Smart cache: NIK yang sudah dikenal dilayani dari memori, tanpa fetch.
+    const cached = getSmartNik(nik);
+    if (cached) {
+      SmartCache.stats.cacheHit++;
+      applyNikLookupResult(nik, cached);
+      return;
+    }
 
-        if (res && res.found) {
-          // Isi initial value (tetap editable)
-          if (inputNama) inputNama.value = res.nama || '';
-          if (inputAlamat) inputAlamat.value = res.alamat || '';
-
-          const sourceLabel = res.source === 'penduduk' ? 'Master Penduduk' : 'Histori Pendaftar';
-          const histInfo = res.historyCount > 0 ? ` | Pernah mendaftar ${res.historyCount} bidang` : '';
-
-          badge.innerHTML = `
-            <div class="info-box" style="margin-top: 8px;">
-              <span class="badge badge-aktif">✓ Data Ditemukan (${sourceLabel})</span>
-              <p style="font-size: 0.8rem; margin-top: 4px; color: var(--text-secondary);">
-                Nama: <strong>${escapeHtml(res.nama)}</strong> | Alamat: ${escapeHtml(res.alamat)}${histInfo}
-              </p>
-              <small style="color: var(--text-muted); font-size: 0.75rem;">* Nama & alamat terisi otomatis dan dapat diedit jika data KTP berbeda.</small>
-            </div>
-          `;
-        } else {
-          // Jika tidak ditemukan, kosongkan nama & alamat
-          if (inputNama) inputNama.value = '';
-          if (inputAlamat) inputAlamat.value = '';
-
-          badge.innerHTML = `
-            <div style="margin-top: 6px;">
-              <span class="badge badge-warning">NIK Baru (Tidak ditemukan di master penduduk)</span>
-              <p style="font-size: 0.78rem; color: var(--text-muted); margin-top: 2px;">Silakan input Nama Lengkap dan Alamat Petani secara manual.</p>
-            </div>
-          `;
-        }
-      })
+    resolveNikInfo(nik)
+      .then(res => applyNikLookupResult(nik, res))
       .catch(err => {
         badge.innerHTML = `<span style="color: var(--accent-rose);">Gagal cek NIK: ${escapeHtml(err.message)}</span>`;
       });
+  }
+
+  function applyNikLookupResult(nik, res) {
+    const badge = document.getElementById('nik-history-badge');
+    if (!badge) return;
+
+    // Abaikan respons yang sudah basi (NIK sudah diganti operator).
+    const currentNikEl = document.getElementById('pos-nik');
+    if (currentNikEl && currentNikEl.value.trim() !== nik) return;
+
+    const inputNama = document.getElementById('pos-nama-petani');
+    const inputAlamat = document.getElementById('pos-alamat-petani');
+
+    if (res && res.found) {
+      if (inputNama) inputNama.value = res.nama || '';
+      if (inputAlamat) inputAlamat.value = res.alamat || '';
+
+      const sourceLabel = res.source === 'penduduk' ? 'Master Penduduk' : 'Histori Pendaftar';
+      const histInfo = res.historyCount > 0 ? ` | Pernah mendaftar ${res.historyCount} bidang` : '';
+      const cacheTag = '<span title="Dilayani dari smart cache (tanpa query ulang ke GSheet)" style="font-size: 0.65rem; font-weight: 600; color: var(--accent-emerald); background: rgba(16,185,129,0.12); border: 1px solid rgba(16,185,129,0.35); border-radius: 4px; padding: 1px 5px; margin-left: 6px;">⚡ CACHE</span>';
+
+      badge.innerHTML = `
+        <div class="info-box" style="margin-top: 8px;">
+          <span class="badge badge-aktif">✓ Data Ditemukan (${sourceLabel})</span>${cacheTag}
+          <p style="font-size: 0.8rem; margin-top: 4px; color: var(--text-secondary);">
+            Nama: <strong>${escapeHtml(res.nama)}</strong> | Alamat: ${escapeHtml(res.alamat)}${histInfo}
+          </p>
+          <small style="color: var(--text-muted); font-size: 0.75rem;">* Nama & alamat terisi otomatis dan dapat diedit jika data KTP berbeda.</small>
+        </div>
+      `;
+    } else {
+      if (inputNama) inputNama.value = '';
+      if (inputAlamat) inputAlamat.value = '';
+
+      badge.innerHTML = `
+        <div style="margin-top: 6px;">
+          <span class="badge badge-warning">NIK Baru (Tidak ditemukan di master penduduk)</span>
+          <p style="font-size: 0.78rem; color: var(--text-muted); margin-top: 2px;">Silakan input Nama Lengkap dan Alamat Petani secara manual.</p>
+        </div>
+      `;
+    }
   }
 
   /* ============================================================
@@ -3979,6 +4430,11 @@
 
         if (res.success) {
           invalidateAppCaches(['initialData', 'lahan', 'dbwp', 'admin']);
+          patchSmartCacheAfterSave(nik, namaPetani, alamatPetani, AppState.pos.bidangs.map(b => ({
+            generatedNOP: b.generatedNOP,
+            luasDidaftarkan: b.luasDidaftarkan
+          })));
+          invalidateSmartCache();
           showToast(res.message, res.hasWarning ? 'warning' : 'success');
           resetPosForm();
           loadInitialData();
@@ -4207,6 +4663,7 @@
         }
         if (res && res.success) {
           showToast(res.message, 'success');
+          invalidateSmartCache();
           loadUnifiedLahanData(true);
         } else {
           showToast((res && res.message) || 'Gagal menyinkronkan dbwp-banding', 'error');
@@ -4243,6 +4700,7 @@
         }
         if (res && res.success) {
           showToast(res.message, 'success');
+          invalidateSmartCache();
           loadUnifiedLahanData(true);
         } else {
           showToast((res && res.message) || 'Gagal sinkronisasi koordinat', 'error');
@@ -4984,6 +5442,7 @@
       .then(res => {
         if (res.success) {
           showToast(res.message, 'success');
+          invalidateSmartCache();
           doSearch();
           loadInitialData();
         } else {
@@ -5257,6 +5716,7 @@
       keterangan: '',
       koordinat: '',
       nopInfo: null,
+      nopInfoFromCache: false,
       isDeleted: false
     });
     renderEditBidangs();
@@ -5307,27 +5767,41 @@
     b.nop = nopStr;
 
     const infoBox = document.getElementById(`edit-nop-info-${idx}`);
+
+    const applyResult = (result, fromCache) => {
+      const current = AppState.currentEdit && AppState.currentEdit.bidangs[idx];
+      if (!current || current.nop !== nopStr) return;
+      current.nopInfo = result;
+      current.nopInfoFromCache = !!fromCache;
+
+      // Auto-fill koordinat dari dbwp jika sebelumnya kosong
+      if (result && result.koordinat && (!current.koordinat || current.koordinat.trim() === '')) {
+        current.koordinat = result.koordinat;
+        const coordEl = document.getElementById(`edit-koordinat-${idx}`);
+        if (coordEl && !coordEl.value) {
+          coordEl.value = result.koordinat;
+        }
+      }
+
+      updateEditBidangCardPreview(idx);
+    };
+
+    // Smart cache: NOP yang sudah ada di snapshot langsung dilayani dari memori.
+    const cached = getSmartNopInfo(nopStr);
+    if (cached && (cached.nopInfo.found || cached.registrations.length > 0)) {
+      SmartCache.stats.cacheHit++;
+      applyResult(cached, true);
+      return;
+    }
+
     if (infoBox) {
       infoBox.style.display = 'block';
       infoBox.className = 'info-box';
       infoBox.innerHTML = `<span style="font-size: 0.8rem; color: var(--text-muted);">Mengecek sisa luasan NOP ${nopStr}...</span>`;
     }
 
-    callGAS('getNOPInfoAndSisaLuas', { nop: nopStr }, 'POST')
-      .then(result => {
-        b.nopInfo = result;
-
-        // Auto-fill koordinat dari dbwp jika sebelumnya kosong
-        if (result && result.koordinat && (!b.koordinat || b.koordinat.trim() === '')) {
-          b.koordinat = result.koordinat;
-          const coordEl = document.getElementById(`edit-koordinat-${idx}`);
-          if (coordEl && !coordEl.value) {
-            coordEl.value = result.koordinat;
-          }
-        }
-
-        updateEditBidangCardPreview(idx);
-      })
+    resolveNopInfo(nopStr)
+      .then(result => applyResult(result, smartCacheIsUsable() && !!SmartCache.nops[smartCacheNopKey(nopStr)]))
       .catch(err => {
         if (infoBox) {
           infoBox.className = 'info-box warning';
@@ -5348,7 +5822,7 @@
     }
 
     infoBox.style.display = 'block';
-    infoBox.innerHTML = getRenderedNopInfoHtml(b.nopInfo, b.nop, b.luasDidaftarkan);
+    infoBox.innerHTML = getRenderedNopInfoHtml(b.nopInfo, b.nop, b.luasDidaftarkan, b.nopInfoFromCache);
   }
 
   function toggleDeleteEditBidang(idx) {
@@ -5412,7 +5886,7 @@
 
           <!-- Rekonsiliasi Luasan Card di Modal Edit -->
           <div id="edit-nop-info-${idx}" style="${b.nopInfo ? 'display: block;' : 'display: none;'} margin-top: 4px;">
-            ${b.nopInfo ? getRenderedNopInfoHtml(b.nopInfo, b.nop, b.luasDidaftarkan) : ''}
+            ${b.nopInfo ? getRenderedNopInfoHtml(b.nopInfo, b.nop, b.luasDidaftarkan, b.nopInfoFromCache) : ''}
           </div>
 
           <div class="form-row" style="${isDel ? 'pointer-events: none;' : ''}; margin-top: 10px;">
@@ -5500,6 +5974,7 @@
 
         if (res.success) {
           showToast(res.message, 'success');
+          invalidateSmartCache();
           closeEditModal();
           doSearch(); // Refresh data table
           loadInitialData(); // Refresh recent sidebar
@@ -6044,6 +6519,7 @@
       .then(res => {
         if (res.success) {
           invalidateAppCaches(['dbwp', 'initialData', 'admin']);
+          invalidateSmartCache();
           showToast(res.message, 'success');
           loadDbwpAdmin();
         } else {
@@ -6127,6 +6603,19 @@
         params: { limit: 20 },
         validate: (payload) => {
           if (!Array.isArray(payload)) return 'Response harus array';
+          return true;
+        }
+      },
+      {
+        name: 'getPosSnapshot (smart cache)',
+        action: 'getPosSnapshot',
+        method: 'POST',
+        validate: (payload) => {
+          if (!payload || typeof payload !== 'object') return 'Response bukan object';
+          if (payload.success !== true) return 'success harus true';
+          if (typeof payload.nops !== 'object') return 'nops harus object';
+          if (typeof payload.regs !== 'object') return 'regs harus object';
+          if (typeof payload.niks !== 'object') return 'niks harus object';
           return true;
         }
       },

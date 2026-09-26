@@ -157,6 +157,7 @@ var ROUTES = {
      requireSuperuser() sudah jadi no-op. Method tetap POST untuk
      operasi tulis agar body JSON terkirim dengan benar. */
   'getNOPInfoAndSisaLuas':  { handler: handleGetNOPInfoAndSisaLuas,   auth: false, method: 'POST' },
+  'getPosSnapshot':          { handler: getPosSnapshot,                 auth: false, method: 'POST' },
   'lookupPendudukByNIK':    { handler: handleLookupPendudukByNIK,     auth: false, method: 'POST' },
   'lookupNOP':              { handler: handleLookupNOP,               auth: false, method: 'POST' },
   'lookupKoordinatDbwp':    { handler: handleLookupKoordinatDbwp,     auth: false, method: 'POST' },
@@ -1110,6 +1111,268 @@ function lookupKoordinatDbwp(blok, bidang) {
     }
   } catch (e) {}
   return '';
+}
+
+/**
+ * ============================================================
+ * SMART CACHE — SNAPSHOT DATA POS (satu kali baca sheet)
+ * ============================================================
+ * Contoh sebelumnya: setiap ketikan blok/bidang di POS memanggil
+ * `getNOPInfoAndSisaLuas`, yang membaca SELURUH sheet `dbwp` +
+ * `Pendaftar_RDKK` per permintaan. Cookie NIK pun memicu
+ * `lookupPendudukByNIK` (baca `penduduk` + `Pendaftar_RDKK` lagi).
+ * Dengan banyak bidang per sesi, ini berarti puluhan full-sheet read
+ * dan penyesuaian lambat di lapangan.
+ *
+ * `getPosSnapshot` membangun satu snapshot sekali jalan berisi:
+ *   nops  : master NOP  -> { nop, blok, bidang, namaWP, alamatWP, luasPBB, koordinat }
+ *   regs  : pendaftar aktif per NOP -> { total, list[] }
+ *   niks  : master NIK  -> { nama, alamat, source, historyCount }
+ *   config: PREFIX_NOP, TOLERANSI_LEBIH_LUAS, MAX_LUAS_PER_BIDANG_M2
+ *
+ * Frontend menyimpannya di memori (lihat SmartCache di index.html) lalu
+ * menyajikannya sinkron dari cache — tanpa fetch ke GSheet per ketikan.
+ * Logika dan bentuk datanya sengaja dibuat identik dengan
+ * `lookupNOP` / `getNOPInfoAndSisaLuas` / `lookupPendudukByNIK`
+ * agar hasil POS tidak berubah, hanya leaunya.
+ */
+function getPosSnapshot(params, token) {
+  // Guard: endpoint ini hanya dapat diakses oleh Superuser (token diteruskan pemanggil).
+  requireSuperuser(token);
+
+  // Mode "light" (probe async): BUKAN build penuh. Hanya dua sheet yang
+  // berubah saat transaksi (dbwp-banding & Pendaftar_RDKK) yang dipantau.
+  // Sheet dbwp & penduduk bersifat STATIS — hanya di-cek saat ganti sesi
+  // (boot) atau saat terdeteksi perubahan pada dua sheet dinamis di atas.
+  if (params && params.sync === 'light') {
+    let stashed = null;
+    try { stashed = CacheService.getScriptCache().get('POS_LIGHT_STAMP'); } catch (e) {}
+    if (stashed === computeLightPosStamp()) {
+      return { success: true, sync: 'light', changed: false };
+    }
+    // Terdeteksi perubahan / kunci tak ada → jatuh ke build penuh di bawah.
+  }
+
+  const generatedAt = new Date().getTime();
+  const nops = {};   // key = digit NOP (18 digit, plus alias 17 digit)
+  const regs = {};   // key = digit NOP
+  const niks = {};   // key = NIK string
+
+  // --- 1) Master NOP dari `dbwp` (sumber yang sama dengan lookupNOP) ---
+  // Header dbwp: No.(0), NOP(1), Blok(2), Bidang(3), Nama WP(4), Alamat WP(5), Luas pbb(6), Koordinat(7)
+  const dbwpObj = getSheetData('dbwp');
+  const dbwpRows = dbwpObj.data || [];
+
+  function indexNopMaster(digits, entry) {
+    if (!digits || digits.length < 10) return;
+    if (!nops[digits]) nops[digits] = entry;
+    // Alias 17 digit (tanpa digit sisa/akhiran) supaya NOP yang tercatat
+    // 17 digit tetap bisa dicocokkan oleh NOP baku 18 digit hasil POS.
+    if (digits.length === 18 && !nops[digits.substring(0, 17)]) {
+      nops[digits.substring(0, 17)] = entry;
+    }
+  }
+
+  for (let i = 0; i < dbwpRows.length; i++) {
+    const row = dbwpRows[i];
+    const nopRaw = String(row[1] || '').trim();
+    if (!nopRaw) continue;
+    const digits = cleanNOPDigits(nopRaw);
+    indexNopMaster(digits, {
+      nop: nopRaw,
+      blok: Number(row[2] || 0),
+      bidang: Number(row[3] || 0),
+      namaWP: String(row[4] || '').trim(),
+      alamatWP: String(row[5] || '').trim(),
+      luasPBB: Number(row[6] || 0),
+      koordinat: String(row[7] || '').trim()
+    });
+  }
+
+  // --- 2) Master NOP cadangan dari `dbwp-banding` (hanya bila belum ada di dbwp) ---
+  // Header dbwp-banding: No.(0), NOP(1), Nop-dot(2), Blok(3), Bidang(4), Nama WP(5), Alamat WP(6), Luas pbb(7), status(8), Ket.(9)
+  try {
+    const bandingObj = getSheetData('dbwp-banding');
+    const bandingRows = bandingObj.data || [];
+    for (let i = 0; i < bandingRows.length; i++) {
+      const row = bandingRows[i];
+      const digits = cleanNOPDigits(row[1]) || cleanNOPDigits(row[2]);
+      if (!digits) continue;
+      if (nops[digits]) continue;
+      indexNopMaster(digits, {
+        nop: String(row[1] || '').trim() || formatNOP(digits),
+        blok: parseInt(row[3], 10) || 0,
+        bidang: parseInt(row[4], 10) || 0,
+        namaWP: String(row[5] || '').trim() || '-',
+        alamatWP: String(row[6] || '').trim() || '-',
+        luasPBB: Number(row[7]) || 0,
+        koordinat: ''
+      });
+    }
+  } catch (e) {
+    // dbwp-banding opsional — abaikan bila tidak ada.
+  }
+
+  // --- 3) Pendaftar aktif per NOP + master NIK dari histori transaksi ---
+  // Skema Pendaftar_RDKK (A-S, 19 kolom):
+  // [0]=ID_Transaksi, [3]=NIK, [4]=Nama Petani, [5]=Alamat Petani,
+  // [9]=NOP, [13]=Luas Didaftarkan, [15]=Status Transaksi
+  const trxObj = getSheetData('Pendaftar_RDKK');
+  const trxRows = trxObj.data || [];
+
+  for (let t = 0; t < trxRows.length; t++) {
+    const tr = trxRows[t];
+    const nik = String(tr[3] || '').trim();
+    const namaPetani = String(tr[4] || '').trim();
+    const alamatPetani = String(tr[5] || '').trim();
+    const statusTrx = String(tr[15] || '').trim();
+
+    // Master NIK dari histori: menghitung semua baris (sama seperti getHistoriNIK),
+    // nama/alamat diambil dari baris PERTAMA (parity dengan lookupPendudukByNIK).
+    if (nik) {
+      if (!niks[nik]) {
+        niks[nik] = {
+          nama: namaPetani,
+          alamat: alamatPetani,
+          source: 'histori',
+          historyCount: 0
+        };
+      }
+      niks[nik].historyCount++;
+    }
+
+    if (statusTrx === 'Dibatalkan') continue;
+
+    const nopDigits = cleanNOPDigits(tr[9]);
+    if (!nopDigits) continue;
+
+    if (!regs[nopDigits]) regs[nopDigits] = { total: 0, list: [] };
+    const luasDaftar = Number(tr[13]) || 0;
+    regs[nopDigits].total += luasDaftar;
+    regs[nopDigits].list.push({
+      idTransaksi: String(tr[0] || '').trim(),
+      nik: nik,
+      namaPetani: namaPetani,
+      luasDidaftarkan: luasDaftar,
+      statusTransaksi: statusTrx
+    });
+  }
+
+  // Alias 17 digit untuk pendaftar juga, agar sisa luas tetap konsisten
+  // walau NOP di sheet pendaftar kehilangan digit akhir.
+  Object.keys(regs).forEach(function(digits) {
+    if (digits.length === 18 && !regs[digits.substring(0, 17)]) {
+      regs[digits.substring(0, 17)] = regs[digits];
+    }
+  });
+
+  // --- 4) Master NIK dari sheet `penduduk` (menimpa histori, sesuai prioritas backend) ---
+  try {
+    const pendudukObj = getSheetData('penduduk');
+    const pendudukRows = pendudukObj.data || [];
+    for (let p = 0; p < pendudukRows.length; p++) {
+      const row = pendudukRows[p];
+      const nik = String(row[0] || '').trim();
+      if (!nik) continue;
+      const historyCount = niks[nik] ? niks[nik].historyCount : 0;
+      niks[nik] = {
+        nama: String(row[1] || '').trim(),
+        alamat: String(row[2] || '').trim(),
+        source: 'penduduk',
+        historyCount: historyCount
+      };
+    }
+  } catch (e) {
+    // Sheet `penduduk` opsional — histori transaksi tetap dipakai.
+  }
+
+  const stamp = computeSnapshotStamp(nops, regs, niks);
+  // Kunci stamp "ringan" untuk probe async berikutnya (hanya dua sheet
+  // dinamis). Dengan begitu dbwp & penduduk tidak dibaca ulang tiap refresh
+  // selama kedua sheet transaksi tidak berubah.
+  try {
+    CacheService.getScriptCache().put('POS_LIGHT_STAMP', computeLightPosStamp(), 21600);
+  } catch (e) {
+    // Non-fatal — probe berikutnya akan melakukan build penuh bila kunci hilang.
+  }
+
+  return {
+    success: true,
+    generatedAt: generatedAt,
+    stamp: stamp,
+    prefixList: getPrefixNopList(),
+    config: {
+      toleransiLebihLuas: String(getConfigValue('TOLERANSI_LEBIH_LUAS', 'TOLAK') || 'TOLAK'),
+      maxLuasPerBidang: Number(getConfigValue('MAX_LUAS_PER_BIDANG_M2', 0)) || 0
+    },
+    stats: {
+      nopCount: Object.keys(nops).length,
+      regNopCount: Object.keys(regs).length,
+      nikCount: Object.keys(niks).length
+    },
+    nops: nops,
+    regs: regs,
+    niks: niks,
+    // Metadata statis (jarang tersentuh transaksi) ikut di-snapshot supaya
+    // badge kelompok di POS (Pengaturan_Blok) & filter histori (Kelompok_Tani)
+    // tetap terisi walau getInitialAppData lambat/gagal. Keduanya sheet
+    // referensi yang sudah di-cache server 60s (CACHEABLE_REFERENCE_SHEETS).
+    blokList: getPengaturanBlokData(),
+    kelompokList: getKelompokTaniData()
+  };
+}
+
+/**
+ * Cap sidik jari (fingerprint) isi snapshot untuk deteksi perubahan klien.
+ * Memakai SHA-256 dari serialisasi kompak ketiga peta; stabil selama isi
+ * sheet tidak berubah, sehingga frontend bisa melewatkan tulis localStorage
+ * berulang yang redundan pada auto-refresh di mana data identik.
+ */
+function computeSnapshotStamp(nops, regs, niks) {
+  try {
+    const serial = JSON.stringify([nops, regs, niks]);
+    const digest = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, serial, 'UTF-8');
+    return digest.map(function(byteVal) {
+      const v = (byteVal < 0) ? byteVal + 256 : byteVal;
+      return (v < 16 ? '0' : '') + v.toString(16);
+    }).join('');
+  } catch (e) {
+    return String(new Date().getTime());
+  }
+}
+
+/**
+ * Stamp "ringan" — hanya mencakup dua sheet yang berubah saat transaksi:
+ * `Pendaftar_RDKK` & `dbwp-banding`. Dipakai mode `sync:'light'` pada
+ * `getPosSnapshot` agar sheet statis (dbwp, penduduk) TIDAK dibaca ulang
+ * pada tiap auto-refresh kecuali memang ada perubahan transaksi.
+ */
+function computeLightPosStamp() {
+  function snapshotRows(sheetName) {
+    let rows = [];
+    try {
+      const obj = getSheetData(sheetName);
+      rows = (obj && obj.data) || [];
+    } catch (e) {
+      // Sheet opsional — hitung dari data kosong.
+    }
+    const normalized = [];
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i] || [];
+      const vals = [];
+      for (let j = 0; j < row.length; j++) {
+        const v = row[j];
+        vals.push(Object.prototype.toString.call(v) === '[object Date]' ? v.getTime() : v);
+      }
+      normalized.push(vals);
+    }
+    return normalized;
+  }
+  return computeSnapshotStamp(
+    snapshotRows('Pendaftar_RDKK'),
+    snapshotRows('dbwp-banding'),
+    []
+  );
 }
 
 
