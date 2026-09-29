@@ -6041,7 +6041,7 @@
       sumLuasTerdaftar += (f.totalLuasDaftar || 0);
       if (f.isMultiPendaftar) sumGanda++;
     }
-    sumLuasBelum = Math.max(0, sumTotalPBB - sumLuasTerdaftar);
+    sumLuasBelum = Math.max(0, Math.round(sumTotalPBB - sumLuasTerdaftar));
 
     const kpiPbb = document.getElementById('kpi-total-pbb');
     const kpiPbbHa = document.getElementById('kpi-total-pbb-ha');
@@ -6052,14 +6052,14 @@
     const kpiGanda = document.getElementById('kpi-total-ganda');
     const countInfo = document.getElementById('filter-result-count-info');
 
-    if (kpiPbb) kpiPbb.textContent = sumTotalPBB.toLocaleString('id-ID') + ' m²';
+    if (kpiPbb) kpiPbb.textContent = sumTotalPBB.toLocaleString('id-ID', { maximumFractionDigits: 0 }) + ' m²';
     if (kpiPbbHa) kpiPbbHa.textContent = (sumTotalPBB / 10000).toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    if (kpiDaftar) kpiDaftar.textContent = sumLuasTerdaftar.toLocaleString('id-ID') + ' m²';
+    if (kpiDaftar) kpiDaftar.textContent = sumLuasTerdaftar.toLocaleString('id-ID', { maximumFractionDigits: 0 }) + ' m²';
     if (kpiDaftarPct) {
       const pct = sumTotalPBB > 0 ? Math.round((sumLuasTerdaftar / sumTotalPBB) * 100) : 0;
       kpiDaftarPct.textContent = pct + '%';
     }
-    if (kpiBelum) kpiBelum.textContent = sumLuasBelum.toLocaleString('id-ID') + ' m²';
+    if (kpiBelum) kpiBelum.textContent = sumLuasBelum.toLocaleString('id-ID', { maximumFractionDigits: 0 }) + ' m²';
     if (kpiBelumPct) {
       const pctB = sumTotalPBB > 0 ? Math.round((sumLuasBelum / sumTotalPBB) * 100) : 0;
       kpiBelumPct.textContent = pctB + '%';
