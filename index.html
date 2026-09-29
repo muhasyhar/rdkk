@@ -2091,6 +2091,54 @@
       justify-content: flex-start;
     }
 
+    #histori-view .metrics-kpi-row {
+      display: none !important;
+    }
+
+    body.m-kpi-open #histori-view .metrics-kpi-row {
+      display: flex !important;
+    }
+
+    #m-kpi-summary {
+      width: 100%;
+      min-height: 34px;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 6px 9px;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-sm);
+      background: rgba(20, 184, 109, 0.05);
+      color: var(--text-secondary);
+      font-size: 0.76rem;
+      text-align: left;
+    }
+
+    #m-kpi-summary strong {
+      color: var(--text-primary);
+      font-size: 0.78rem;
+    }
+
+    .m-kpi-arrow {
+      flex: 0 0 auto;
+      color: var(--text-muted);
+      font-size: 0.9rem;
+    }
+
+    #m-paging-container {
+      display: block;
+      margin-top: 10px;
+    }
+
+    #m-paging-container .table-toolbar {
+      margin: 0;
+      padding: 8px;
+    }
+
+    #m-paging-container .toolbar-actions label {
+      display: none;
+    }
+
     #histori-view .header-title-wrap {
       display: flex;
       align-items: baseline;
@@ -2139,6 +2187,13 @@
     .filter-chips-bar {
       min-width: 0;
       max-width: 100%;
+      scrollbar-width: none;
+    }
+
+    #histori-view .filter-chips-bar::-webkit-scrollbar,
+    #histori-view .metrics-kpi-row::-webkit-scrollbar,
+    #histori-view .metrics-calc-row::-webkit-scrollbar {
+      display: none;
     }
 
     .metrics-kpi-row,
@@ -2153,6 +2208,14 @@
       flex-wrap: nowrap;
       gap: 4px;
       width: 100%;
+      -webkit-mask-image: linear-gradient(to right, #000 0%, #000 calc(100% - 22px), transparent 100%);
+      mask-image: linear-gradient(to right, #000 0%, #000 calc(100% - 22px), transparent 100%);
+    }
+
+    #histori-view .filter-chips-bar > #chip-filter-ganda,
+    #histori-view .filter-chips-bar > #chip-filter-berlebih,
+    #histori-view .filter-chips-bar > #btn-reset-filters-histori {
+      display: none;
     }
 
     #histori-view .form-row {
@@ -2196,6 +2259,69 @@
     #histori-view .table-toolbar {
       justify-content: space-between;
       width: 100%;
+    }
+
+    #histori-view .filter-chips-bar {
+      position: relative;
+      scrollbar-width: none;
+      -webkit-mask-image: linear-gradient(to right, #000 0%, #000 calc(100% - 22px), transparent 100%);
+      mask-image: linear-gradient(to right, #000 0%, #000 calc(100% - 22px), transparent 100%);
+    }
+
+    #histori-view .filter-chips-bar::-webkit-scrollbar,
+    #histori-view .metrics-kpi-row::-webkit-scrollbar,
+    #histori-view .metrics-calc-row::-webkit-scrollbar,
+    #histori-view .header-actions::-webkit-scrollbar {
+      display: none;
+    }
+
+    #histori-view .metrics-kpi-row,
+    #histori-view .metrics-calc-row {
+      scrollbar-width: none;
+    }
+
+    #histori-view .metrics-kpi-row {
+      display: none !important;
+    }
+
+    body.m-kpi-open #histori-view .metrics-kpi-row {
+      display: flex !important;
+    }
+
+    #m-kpi-summary {
+      width: 100%;
+      min-height: 34px;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 6px 9px;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-sm);
+      background: rgba(20, 184, 109, 0.05);
+      color: var(--text-secondary);
+      font-size: 0.76rem;
+      text-align: left;
+    }
+
+    #m-kpi-summary strong {
+      color: var(--text-primary);
+      font-size: 0.78rem;
+    }
+
+    .m-kpi-arrow {
+      flex: 0 0 auto;
+      color: var(--text-muted);
+      font-size: 0.9rem;
+    }
+
+    #m-paging-container {
+      display: block;
+      margin-top: 10px;
+    }
+
+    #m-paging-container .table-toolbar {
+      margin: 0;
+      padding: 8px;
     }
 
     .table-scroll-shell {
@@ -2600,6 +2726,10 @@
           </div>
 
           <div class="metrics-strip">
+            <button type="button" id="m-kpi-summary" class="m-only" hidden aria-expanded="false" onclick="toggleMobileKpiSummary()">
+              <span>Terdaftar <strong id="m-kpi-terdaftar-pct">0%</strong> · Belum <strong id="m-kpi-belum-pct">0%</strong></span>
+              <span class="m-kpi-arrow" aria-hidden="true">▾</span>
+            </button>
             <div class="metrics-kpi-row">
               <div class="metric-kpi-item">
                 <span>📐 PBB:</span>
@@ -2668,7 +2798,7 @@
               </button>
             </div>
 
-            <div class="table-toolbar" aria-label="Paging tabel data" style="margin: 0;">
+            <div id="m-table-toolbar" class="table-toolbar" aria-label="Paging tabel data" style="margin: 0;">
               <div class="toolbar-summary" id="table-page-summary">1 / 1 · 0 data</div>
               <div class="toolbar-actions">
                 <button type="button" id="table-prev-page" onclick="changeTablePage(-1)">←</button>
@@ -2790,6 +2920,7 @@
             <span>Pilih semua bidang di halaman</span>
           </label>
           <div id="lahan-mobile-cards" class="lahan-mobile-cards"></div>
+          <div id="m-paging-container" class="m-only" hidden></div>
         </div>
       </div>
 
@@ -4387,7 +4518,8 @@
       ['btn-sync-koordinat-histori', 'm-menu-actions'],
       ['btn-sync-dbwp-histori', 'm-menu-actions'],
       ['btn-reload-histori', 'm-menu-actions'],
-      ['btn-reset-filters-histori', 'm-filter-actions']
+      ['btn-reset-filters-histori', 'm-filter-actions'],
+      ['m-table-toolbar', 'm-paging-container']
     ];
 
     movableElements.forEach(([id, targetId]) => {
@@ -4419,12 +4551,44 @@
 
     const searchActions = document.getElementById('m-search-actions');
     if (searchActions) searchActions.hidden = !isMobile;
+    const kpiSummary = document.getElementById('m-kpi-summary');
+    if (kpiSummary) kpiSummary.hidden = !isMobile;
+    const pagingContainer = document.getElementById('m-paging-container');
+    if (pagingContainer) pagingContainer.hidden = !isMobile;
     if (!isMobile) {
       closeMobileFilterSheet();
       closeMobileMenu();
+      document.body.classList.remove('m-kpi-open');
+      if (kpiSummary) kpiSummary.setAttribute('aria-expanded', 'false');
       const farmerSummary = document.getElementById('farmer-filter-summary');
       if (farmerSummary) farmerSummary.hidden = true;
     }
+  }
+
+  function updateMobileKpiSummary() {
+    const summary = document.getElementById('m-kpi-summary');
+    if (!summary) return;
+
+    const registered = document.getElementById('kpi-luas-terdaftar-pct');
+    const unregistered = document.getElementById('kpi-luas-belum-pct');
+    const registeredText = document.getElementById('m-kpi-terdaftar-pct');
+    const unregisteredText = document.getElementById('m-kpi-belum-pct');
+    if (registeredText && registered) registeredText.textContent = registered.textContent;
+    if (unregisteredText && unregistered) unregisteredText.textContent = unregistered.textContent;
+
+    const isOpen = document.body.classList.contains('m-kpi-open');
+    summary.hidden = !historiLayoutMql.matches;
+    summary.setAttribute('aria-expanded', String(isOpen));
+    const arrow = summary.querySelector('.m-kpi-arrow');
+    if (arrow) arrow.textContent = isOpen ? '▴' : '▾';
+  }
+
+  function toggleMobileKpiSummary() {
+    const isOpen = document.body.classList.toggle('m-kpi-open');
+    const summary = document.getElementById('m-kpi-summary');
+    if (summary) summary.setAttribute('aria-expanded', String(isOpen));
+    const arrow = summary && summary.querySelector('.m-kpi-arrow');
+    if (arrow) arrow.textContent = isOpen ? '▴' : '▾';
   }
 
   function openMobileFilterSheet() {
@@ -5768,6 +5932,7 @@
     renderLahanTable(filtered);
     updateCalculationBar();
     updateMobileFilterBadge();
+    updateMobileKpiSummary();
   }
 
   function renderLahanMobileCard(item) {
