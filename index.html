@@ -167,17 +167,21 @@
     border: none;
     padding: 8px 0 10px;
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
+    gap: 3px;
     color: rgba(19, 43, 34, 0.48);
-    min-height: 42px;
+    min-height: 52px;
     font-size: 1.15rem;
     line-height: 1;
     transition: color 0.2s ease;
   }
 
   .mobile-bottom-nav .nav-btn small {
-    display: none;
+    display: block;
+    font-size: 0.68rem;
+    line-height: 1.1;
   }
 
   .mobile-bottom-nav .nav-btn.active {
@@ -331,65 +335,6 @@
     height: calc(100vh - 110px);
     position: sticky;
     top: 90px;
-  }
-
-  /* Step POS Progress Bar */
-  .step-bar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    background: var(--bg-surface);
-    padding: 16px 24px;
-    border-radius: var(--radius-lg);
-    border: 1px solid var(--border-color);
-  }
-
-  .step-item {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    opacity: 0.4;
-    transition: var(--transition-fast);
-  }
-
-  .step-item.active {
-    opacity: 1;
-  }
-
-  .step-number {
-    width: 32px;
-    height: 32px;
-    border-radius: var(--radius-full);
-    background: var(--bg-surface-hover);
-    color: var(--text-secondary);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: 700;
-    font-size: 0.9rem;
-  }
-
-  .step-item.active .step-number {
-    background: var(--accent-blue);
-    color: white;
-    box-shadow: 0 0 12px rgba(59, 130, 246, 0.5);
-  }
-
-  .step-item.completed .step-number {
-    background: var(--accent-emerald);
-    color: white;
-  }
-
-  .step-label {
-    font-size: 0.875rem;
-    font-weight: 600;
-  }
-
-  .step-divider {
-    flex: 1;
-    height: 2px;
-    background: var(--border-color);
-    margin: 0 16px;
   }
 
   /* Card Component */
@@ -600,6 +545,10 @@
     touch-action: pan-x pan-y;
   }
 
+  .lahan-mobile-list {
+    display: none;
+  }
+
   .table-scroll-shell::-webkit-scrollbar {
     width: 10px;
     height: 10px;
@@ -645,6 +594,10 @@
   .form-control::placeholder {
     color: #7d948a;
     opacity: 1;
+  }
+
+  .pos-main .form-control::placeholder {
+    opacity: 0.55;
   }
 
   .form-control:focus {
@@ -772,6 +725,49 @@
 
   .btn-block {
     width: 100%;
+  }
+
+  .pos-clear-button {
+    width: 44px;
+    height: 44px;
+    min-height: 44px;
+    flex: 0 0 44px;
+    padding: 0;
+    font-size: 1rem;
+  }
+
+  .pos-section-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 8px 0;
+    margin-bottom: 8px;
+    border-bottom: 1px solid var(--border-color);
+  }
+
+  .pos-section-heading h3 {
+    margin: 0;
+    color: var(--text-primary);
+    font-size: 0.95rem;
+    line-height: 1.3;
+  }
+
+  .pos-section-heading p {
+    margin-top: 3px;
+    color: var(--text-muted);
+    font-size: 0.74rem;
+  }
+
+  .card-title.pos-form-title {
+    justify-content: flex-start;
+    margin-bottom: 12px;
+    font-size: 1rem;
+    line-height: 1.35;
+  }
+
+  .pos-land-summary-row {
+    margin-bottom: 10px;
   }
 
   /* Status Badges */
@@ -1643,11 +1639,113 @@
       font-size: 0.92rem;
     }
 
-    .nav-tabs {
+    .app-header > .nav-tabs {
       display: none;
       width: 100%;
       overflow-x: auto;
       justify-content: flex-start;
+    }
+
+    #admin-view > .card > .nav-tabs {
+      display: flex;
+      flex-wrap: nowrap;
+      overflow-x: auto;
+      justify-content: flex-start;
+      margin-right: -8px;
+      padding-bottom: 6px;
+      scrollbar-width: thin;
+    }
+
+    #admin-view > .card > .nav-tabs .nav-btn {
+      flex: 0 0 auto;
+      min-height: 44px;
+    }
+
+    #admin-view > .card {
+      padding: 14px;
+    }
+
+    #admin-view > .card > .card-title {
+      align-items: flex-start;
+      flex-wrap: wrap;
+      gap: 8px;
+      font-size: 1rem;
+      line-height: 1.35;
+    }
+
+    #admin-view > .card > .nav-tabs {
+      width: calc(100% + 4px);
+      margin: 8px -2px 14px !important;
+      padding: 4px;
+      border-radius: var(--radius-sm);
+    }
+
+    #admin-view .admin-tab-content {
+      min-width: 0;
+    }
+
+    #admin-view .table-responsive {
+      width: 100%;
+      max-width: 100%;
+      overflow-x: auto;
+      overflow-y: hidden;
+      overscroll-behavior-x: contain;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    #admin-view .table-responsive .data-table {
+      min-width: 620px;
+    }
+
+    #admin-view .admin-dbwp-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    #admin-view .admin-dbwp-title {
+      min-width: 0;
+      font-size: 0.88rem;
+      font-weight: 700;
+      line-height: 1.3;
+    }
+
+    #admin-view .admin-dbwp-title small {
+      display: block;
+      margin-top: 2px;
+      color: var(--text-muted);
+      font-size: 0.72rem;
+      font-weight: 500;
+    }
+
+    #admin-view .admin-dbwp-actions {
+      display: flex;
+      flex: 0 0 auto;
+      gap: 6px;
+    }
+
+    #admin-view .admin-dbwp-actions .btn {
+      display: grid;
+      width: 44px;
+      height: 44px;
+      min-height: 44px;
+      place-items: center;
+      padding: 0;
+      font-size: 1rem;
+    }
+
+    #admin-view .admin-dbwp-actions .admin-action-label {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
     }
 
     .nav-btn {
@@ -1669,6 +1767,10 @@
       padding: 12px 12px 102px;
     }
 
+    .pos-main > .card {
+      padding: 16px 14px;
+    }
+
     .pos-layout {
       flex-direction: column;
     }
@@ -1679,13 +1781,23 @@
       position: static;
     }
 
-    .step-bar {
-      overflow-x: auto;
-      padding: 12px 14px;
+    .form-group label {
+      font-size: 13px;
+      letter-spacing: 0;
     }
 
-    .step-item {
-      min-width: 96px;
+    .form-control {
+      min-height: 44px;
+      padding: 9px 11px;
+      font-size: 16px;
+    }
+
+    .btn {
+      min-height: 44px;
+    }
+
+    .btn-sm {
+      min-height: 40px;
     }
 
     .form-row {
@@ -1716,9 +1828,63 @@
     }
 
     #histori-view .data-header-sticky {
-      top: 60px;
+      position: static;
+      top: auto;
+      display: flex;
+      flex-direction: column;
       padding: 4px 6px 5px;
       margin: -8px -8px 6px;
+    }
+
+    #histori-view .header-main-row { order: 0; }
+    #histori-view .header-inline-row { order: 1; }
+    #histori-view .header-secondary-row { order: 2; }
+    #histori-view .metrics-strip { order: 3; }
+
+    #histori-view .header-main-row {
+      display: grid;
+      gap: 6px;
+    }
+
+    #histori-view .header-title-wrap {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    #histori-view .main-title {
+      font-size: 1rem;
+      font-weight: 700;
+      line-height: 1.3;
+    }
+
+    #histori-view .header-total {
+      flex: 0 0 auto;
+      color: var(--text-muted);
+      font-size: 0.72rem;
+    }
+
+    #histori-view .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      max-width: 100%;
+      overflow-x: auto;
+      overflow-y: hidden;
+      padding-bottom: 2px;
+      scrollbar-width: thin;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    #histori-view .header-actions > * {
+      flex: 0 0 auto;
+    }
+
+    #histori-view .header-actions .btn {
+      min-height: 40px;
+      padding: 0 10px;
+      font-size: 0.75rem;
     }
 
     #histori-view .card-title {
@@ -1736,6 +1902,13 @@
     }
 
     .metrics-kpi-row,
+    .metrics-calc-row,
+    .filter-chips-bar {
+      min-width: 0;
+      max-width: 100%;
+    }
+
+    .metrics-kpi-row,
     .metrics-calc-row {
       flex-direction: row;
       align-items: center;
@@ -1746,26 +1919,227 @@
       display: flex;
       flex-wrap: nowrap;
       gap: 4px;
+      width: 100%;
     }
 
     #histori-view .form-row {
       display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 6px;
-      padding: 3px 4px;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: 8px;
+      padding: 6px 4px;
     }
 
-    .table-responsive {
-      overflow-x: auto;
-      -webkit-overflow-scrolling: touch;
+    #histori-view .header-inline-row .form-group:first-child {
+      grid-column: 1 / -1;
+    }
+
+    .farmer-filter-summary {
+      grid-column: 1 / -1;
+      padding: 8px 10px;
+      border-top: 1px solid var(--border-color);
+      color: var(--text-secondary);
+      font-size: 0.82rem;
+      line-height: 1.4;
+      overflow-wrap: anywhere;
+    }
+
+    .farmer-filter-summary[hidden] {
+      display: none;
+    }
+
+    #histori-view .header-inline-row .form-control {
+      height: 44px !important;
+      min-height: 44px;
+      padding: 8px 10px !important;
+      font-size: 16px !important;
+    }
+
+    #histori-view .header-secondary-row {
+      display: grid !important;
+      align-items: stretch !important;
+      gap: 8px !important;
+    }
+
+    #histori-view .table-toolbar {
+      justify-content: space-between;
+      width: 100%;
     }
 
     .table-scroll-shell {
-      max-height: clamp(340px, 75vh, 760px);
+      display: none;
     }
 
-    .data-table {
-      min-width: 1180px;
+    .lahan-mobile-list {
+      display: block;
+    }
+
+    .lahan-mobile-select-all {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-height: 44px;
+      padding: 0 4px;
+      color: var(--text-secondary);
+      font-size: 0.82rem;
+    }
+
+    .lahan-mobile-select-all input,
+    .lahan-mobile-card-select input {
+      width: 20px;
+      height: 20px;
+      accent-color: var(--accent-blue);
+    }
+
+    .lahan-mobile-cards {
+      display: grid;
+      gap: 10px;
+    }
+
+    .lahan-mobile-card {
+      min-width: 0;
+      padding: 12px;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      background: var(--bg-surface);
+    }
+
+    .lahan-mobile-card.is-selected {
+      border-color: var(--accent-blue);
+      background: var(--bg-surface-hover);
+    }
+
+    .lahan-mobile-card-head,
+    .lahan-mobile-card-person,
+    .lahan-mobile-card-metrics {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .lahan-mobile-card-head {
+      align-items: flex-start;
+    }
+
+    .lahan-mobile-place-title {
+      min-width: 0;
+      color: var(--text-primary);
+      font-size: 0.95rem;
+      font-weight: 700;
+    }
+
+    .lahan-mobile-place-group {
+      display: block;
+      margin-top: 2px;
+      color: var(--text-secondary);
+      font-size: 0.78rem;
+      font-weight: 500;
+    }
+
+    .lahan-mobile-card-select {
+      display: grid;
+      width: 44px;
+      height: 44px;
+      flex: 0 0 44px;
+      place-items: center;
+      margin: -6px -6px 0 0;
+    }
+
+    .lahan-mobile-card-person {
+      align-items: center;
+      margin-top: 10px;
+    }
+
+    .lahan-mobile-farmer-name {
+      min-width: 0;
+      font-weight: 700;
+      overflow-wrap: anywhere;
+    }
+
+    .lahan-mobile-card-metrics {
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid var(--border-color);
+    }
+
+    .lahan-mobile-card-metrics > div {
+      display: flex;
+      min-width: 0;
+      flex: 1;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .lahan-mobile-card-metrics > div + div {
+      padding-left: 10px;
+      border-left: 1px solid var(--border-color);
+    }
+
+    .lahan-mobile-card-metrics span,
+    .lahan-mobile-detail-label {
+      color: var(--text-muted);
+      font-size: 0.72rem;
+      font-weight: 600;
+    }
+
+    .lahan-mobile-card-metrics strong {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.9rem;
+      text-align: left;
+      overflow-wrap: anywhere;
+    }
+
+    .lahan-mobile-card-details {
+      margin-top: 8px;
+      border-top: 1px solid var(--border-color);
+    }
+
+    .lahan-mobile-card-details summary {
+      display: flex;
+      min-height: 44px;
+      align-items: center;
+      color: var(--accent-blue-hover);
+      font-size: 0.82rem;
+      font-weight: 600;
+      cursor: pointer;
+      touch-action: manipulation;
+    }
+
+    .lahan-mobile-card-details[open] summary {
+      margin-bottom: 8px;
+    }
+
+    .lahan-mobile-detail-row {
+      padding: 8px 0;
+      border-top: 1px solid var(--border-color);
+      overflow-wrap: anywhere;
+    }
+
+    .lahan-mobile-detail-value {
+      display: block;
+      margin-top: 2px;
+      color: var(--text-primary);
+      font-size: 0.84rem;
+    }
+
+    .lahan-mobile-detail-value a {
+      display: inline-block;
+      min-height: 36px;
+      padding-top: 8px;
+    }
+
+    .lahan-mobile-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      padding-top: 8px;
+      border-top: 1px solid var(--border-color);
+    }
+
+    .lahan-mobile-empty {
+      padding: 24px 12px;
+      color: var(--text-muted);
+      text-align: center;
+      font-size: 0.9rem;
     }
 
     .mobile-bottom-nav {
@@ -1808,12 +2182,15 @@
   <nav class="mobile-bottom-nav" aria-label="Navigasi utama mobile">
     <button class="nav-btn active" data-target="pos-view" aria-label="Input POS">
       <span>📝</span>
+      <small>Input</small>
     </button>
     <button class="nav-btn" data-target="histori-view" aria-label="Data">
       <span>🔍</span>
+      <small>Data</small>
     </button>
     <button class="nav-btn" data-target="admin-view" aria-label="Admin">
       <span>⚙️</span>
+      <small>Admin</small>
     </button>
   </nav>
 
@@ -1831,42 +2208,21 @@
         <!-- Kolom Kiri: Form Input POS-Like -->
         <div class="pos-main">
 
-          <!-- Bar Inisial Operator & Step Header -->
-          <div class="step-bar">
-            <div class="step-item active">
-              <div class="step-number">1</div>
-              <div class="step-label">NIK Petani</div>
-            </div>
-            <div class="step-divider"></div>
-            <div class="step-item active">
-              <div class="step-number">2</div>
-              <div class="step-label">Identitas</div>
-            </div>
-            <div class="step-divider"></div>
-            <div class="step-item active">
-              <div class="step-number">3</div>
-              <div class="step-label">Blok & NOP</div>
-            </div>
-            <div class="step-divider"></div>
-            <div class="step-item active">
-              <div class="step-number">4</div>
-              <div class="step-label">Luas & Simpan</div>
-            </div>
-          </div>
-
           <!-- Card Form Utama -->
           <div class="card">
-            <div class="card-title">
-              <span>📝 Form Pendataan Petani & Lahan (POS)</span>
-              <span style="font-size: 0.8rem; font-weight: 400; color: var(--text-muted);">
-                Input Cepat / Zero-Cost
-              </span>
+            <div class="card-title pos-form-title">
+              <span>📝 Pendataan e-RDKK</span>
             </div>
 
             <!-- Section 1: NIK & Identitas Petani -->
+            <div class="pos-section-heading">
+              <h3>Identitas Petani</h3>
+              <button type="button" class="btn btn-secondary btn-sm pos-clear-button" onclick="clearPosFarmerInputs()" title="Bersihkan isian petani" aria-label="Bersihkan isian petani">🧹</button>
+            </div>
+
             <div class="form-row">
               <div class="form-group" style="grid-column: span 2;">
-                <label>NIK Petani (16 Digit) *</label>
+                <label for="pos-nik">NIK Petani (16 Digit) *</label>
                 <input type="text" id="pos-nik" class="form-control" placeholder="3201010101010001" maxlength="16" autofocus autocomplete="off">
                 <div id="nik-history-badge" style="display: none;"></div>
               </div>
@@ -1893,13 +2249,16 @@
             <hr style="border: none; border-top: 1px solid var(--border-color); margin: 16px 0;">
 
             <!-- Section 2: Data Lahan Multi-Bidang -->
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
-              <div class="card-title" style="font-size: 0.95rem; color: var(--accent-blue); margin-bottom: 0;">
-                📍 Data Lahan & Auto-Lookup NOP (Multi-Bidang)
-              </div>
+            <div class="pos-section-heading">
               <div>
-                <span id="pos-summary-badge" class="summary-pill">0 Bidang | Total 0 m²</span>
+                <h3>📍 Data Lahan</h3>
+                <p>Auto-lookup NOP · Multi-bidang</p>
               </div>
+              <button type="button" class="btn btn-secondary btn-sm pos-clear-button" onclick="clearPosLandInputs()" title="Bersihkan isian lahan" aria-label="Bersihkan isian lahan">🧹</button>
+            </div>
+
+            <div class="pos-land-summary-row">
+              <span id="pos-summary-badge" class="summary-pill">0 Bidang | Total 0 m²</span>
             </div>
 
             <!-- Dynamic Bidang Repeater Container -->
@@ -2097,7 +2456,7 @@
 
           <div class="header-inline-row form-row" style="background: rgba(15, 184, 109, 0.04); padding: 4px 6px; border-radius: 4px; border: 1px solid rgba(20, 184, 109, 0.15);">
             <div class="form-group" style="margin: 0; flex: 2; min-width: 160px;">
-              <input type="text" id="search-keyword" class="form-control" placeholder="Cari NIK / Nama / NOP / Bidang..." oninput="onFilterInputChange()" style="height: 26px; font-size: 0.75rem; padding: 2px 6px;">
+              <input type="text" id="search-keyword" class="form-control" placeholder="Cari petani / NIK / NOP / bidang..." oninput="onFilterInputChange()" style="height: 26px; font-size: 0.75rem; padding: 2px 6px;">
             </div>
             <div class="form-group" style="margin: 0; flex: 0.8; min-width: 90px;">
               <input type="number" id="search-blok" class="form-control" placeholder="Blok" oninput="onFilterInputChange()" style="height: 26px; font-size: 0.75rem; padding: 2px 6px;">
@@ -2107,6 +2466,7 @@
                 <option value="">Semua Kelompok</option>
               </select>
             </div>
+            <div id="farmer-filter-summary" class="farmer-filter-summary" aria-live="polite" hidden></div>
           </div>
         </div>
 
@@ -2186,6 +2546,13 @@
               </tbody>
             </table>
           </div>
+        </div>
+        <div id="lahan-mobile-list" class="lahan-mobile-list">
+          <label class="lahan-mobile-select-all">
+            <input type="checkbox" id="check-all-master-mobile" onchange="toggleSelectAllRows(this.checked)">
+            <span>Pilih semua bidang di halaman</span>
+          </label>
+          <div id="lahan-mobile-cards" class="lahan-mobile-cards"></div>
         </div>
       </div>
 
@@ -2362,16 +2729,18 @@
 
         <!-- Tab 1: dbwp Master Data -->
         <div id="tab-dbwp" class="admin-tab-content active" style="display: block;">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 8px;">
-            <span style="font-size: 0.9rem; font-weight: 600; color: var(--text-secondary);">Master Data NOP PBB (Sheet `dbwp`) — Header: No. | NOP | Blok | Bidang | Nama WP | Alamat WP | Luas pbb | Koordinat</span>
-            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-              <button id="btn-sync-koordinat-admin" onclick="syncKoordinatNow()" class="btn btn-outline btn-sm" title="Sinkronkan kolom Koordinat dari dbwp ke sheet Pendaftar_RDKK">
-                📍 Sinkronkan Koordinat ke RDKK
+          <div class="admin-dbwp-toolbar">
+            <span class="admin-dbwp-title">Master Data NOP PBB<small>Sheet dbwp</small></span>
+            <div class="admin-dbwp-actions">
+              <button id="btn-sync-koordinat-admin" onclick="syncKoordinatNow()" class="btn btn-outline btn-sm" title="Sinkronkan kolom Koordinat dari dbwp ke sheet Pendaftar_RDKK" aria-label="Sinkronkan koordinat ke RDKK">
+                <span class="admin-action-icon" aria-hidden="true">📍</span><span class="admin-action-label">Sinkronkan Koordinat ke RDKK</span>
               </button>
-              <button id="btn-sync-dbwp" onclick="syncDbwpBandingNow()" class="btn btn-emerald btn-sm" title="Sinkronkan status terdaftar/belum ke sheet dbwp-banding">
-                ⚡ Sinkronkan dbwp-banding
+              <button id="btn-sync-dbwp" onclick="syncDbwpBandingNow()" class="btn btn-emerald btn-sm" title="Sinkronkan status terdaftar/belum ke sheet dbwp-banding" aria-label="Sinkronkan dbwp-banding">
+                <span class="admin-action-icon" aria-hidden="true">⚡</span><span class="admin-action-label">Sinkronkan dbwp-banding</span>
               </button>
-              <button onclick="handleAddDbwp()" class="btn btn-primary btn-sm">➕ Tambah NOP Manual</button>
+              <button onclick="handleAddDbwp()" class="btn btn-primary btn-sm" title="Tambah NOP manual" aria-label="Tambah NOP manual">
+                <span class="admin-action-icon" aria-hidden="true">➕</span><span class="admin-action-label">Tambah NOP Manual</span>
+              </button>
             </div>
           </div>
 
@@ -3730,25 +4099,8 @@
   }
 
   function applyMobileDataTabRules() {
-    const mobile = window.matchMedia('(max-width: 768px)').matches;
-    const historiView = document.getElementById('histori-view');
-    if (!historiView) return;
-
-    const filterChips = historiView.querySelectorAll('.filter-chips-bar');
-    const filterForm = historiView.querySelectorAll('.form-row');
-    const exportBtn = historiView.querySelector('#btn-export-menu');
-    const exportDropdown = historiView.querySelector('.export-dropdown');
-    const calcRow = historiView.querySelector('.metrics-strip .metrics-calc-row');
-
-    filterChips.forEach(el => {
-      el.style.display = mobile ? 'none' : '';
-    });
-    filterForm.forEach(el => {
-      el.style.display = mobile ? 'none' : '';
-    });
-    if (exportBtn) exportBtn.style.display = mobile ? 'none' : '';
-    if (exportDropdown) exportDropdown.style.display = mobile ? 'none' : 'none';
-    if (calcRow) calcRow.style.display = mobile ? 'none' : '';
+    const exportDropdown = document.querySelector('#histori-view .export-dropdown');
+    if (exportDropdown) exportDropdown.style.display = 'none';
   }
 
   function switchView(viewId) {
@@ -3793,7 +4145,10 @@
     }
   }
 
-  window.addEventListener('resize', applyMobileDataTabRules);
+  window.addEventListener('resize', () => {
+    applyMobileDataTabRules();
+    renderLahanTable(LahanState.filteredData || []);
+  });
 
   /* ============================================================
    * Load Initial Data from GAS Server
@@ -3900,11 +4255,6 @@
       AppState.blokList.map(b => `<option value="${b.blok}" ${String(b.blok) === String(selectedBlok) ? 'selected' : ''}>Blok ${b.blok} (${escapeHtml(b.kelompok)})</option>`).join('');
   }
 
-  function getPrefixOptionsHtml(selectedPrefix) {
-    const list = AppState.prefixList && AppState.prefixList.length > 0 ? AppState.prefixList : ['3510071003'];
-    return list.map(p => `<option value="${p}" ${p === selectedPrefix ? 'selected' : ''}>${p}</option>`).join('');
-  }
-
   /* ============================================================
    * POS Multi-Bidang Form Handler & Real-Time Logic
    * ============================================================ */
@@ -3952,7 +4302,6 @@
     container.innerHTML = AppState.pos.bidangs.map((b, idx) => {
       const isOnlyOne = AppState.pos.bidangs.length === 1;
       const blokOptions = getBlokOptionsHtml(b.blok);
-      const prefixOptions = getPrefixOptionsHtml(b.prefixNop);
 
       return `
         <div class="bidang-card" id="pos-bidang-card-${b.id}">
@@ -3969,12 +4318,6 @@
           </div>
 
           <div class="form-row">
-            <div class="form-group">
-              <label>Prefix NOP Desa</label>
-              <select class="form-control" onchange="onPosBidangChange(${b.id}, 'prefixNop', this.value)">
-                ${prefixOptions}
-              </select>
-            </div>
             <div class="form-group">
               <label>Blok Lahan (Ketik Nomor) *</label>
               <input type="number" id="pos-blok-${b.id}" class="form-control" placeholder="Contoh: 1 / 001" min="1" max="999" value="${b.blok || ''}"
@@ -4485,6 +4828,36 @@
       });
   }
 
+  function clearPosFarmerInputs() {
+    ['pos-nik', 'pos-nama-petani', 'pos-alamat-petani', 'pos-nomor-hp'].forEach(id => {
+      const input = document.getElementById(id);
+      if (input) input.value = '';
+    });
+    AppState.pos.nik = '';
+
+    const badge = document.getElementById('nik-history-badge');
+    if (badge) {
+      badge.style.display = 'none';
+      badge.innerHTML = '';
+    }
+  }
+
+  function clearPosLandInputs() {
+    (AppState.pos.bidangs || []).forEach(b => {
+      b.blok = '';
+      b.nomorBidang = '';
+      b.generatedNOP = '';
+      b.nopInfo = null;
+      b.nopInfoFromCache = false;
+      b.luasDidaftarkan = '';
+      b.koordinat = '';
+      b.keterangan = '';
+    });
+
+    renderPosBidangs();
+    updatePosOverallSummary();
+  }
+
   function resetPosForm() {
     document.getElementById('pos-nik').value = '';
     document.getElementById('pos-nama-petani').value = '';
@@ -4851,6 +5224,15 @@
     const blokFilter = (document.getElementById('search-blok') ? document.getElementById('search-blok').value : '').trim();
     const blokPad = blokFilter ? zeroPad(parseInt(blokFilter, 10) || 0, 3) : '';
     const kelompokFilter = (document.getElementById('search-kelompok') ? document.getElementById('search-kelompok').value : '').toLowerCase().trim();
+    const matchesFarmer = item => {
+      const registrations = Array.isArray(item.petaniList) ? item.petaniList : [];
+      return String(item.nik || '').toLowerCase().includes(keyword) ||
+             String(item.petani || '').toLowerCase().includes(keyword) ||
+             registrations.some(person =>
+               String(person.nik || '').toLowerCase().includes(keyword) ||
+               String(person.nama || person.namaPetani || '').toLowerCase().includes(keyword)
+             );
+    };
 
     // Hitung count untuk chips berdasarkan filter umum
     let countAll = 0;
@@ -4901,6 +5283,7 @@
         const nomorHpText = getNomorHpValue(r).toLowerCase();
         const matchKey = String(r.nik || '').toLowerCase().includes(keyword) ||
                          String(r.petani || '').toLowerCase().includes(keyword) ||
+                         matchesFarmer(r) ||
                          nomorHpText.includes(keyword) ||
                          String(r.namaWP || '').toLowerCase().includes(keyword) ||
                          String(r.alamatWP || '').toLowerCase().includes(keyword) ||
@@ -4980,6 +5363,21 @@
       countInfo.textContent = `Menampilkan ${filtered.length} dari ${raw.length} bidang`;
     }
 
+    const farmerSummary = document.getElementById('farmer-filter-summary');
+    const farmerMatches = keyword ? filtered.filter(matchesFarmer) : [];
+    if (farmerSummary) {
+      const uniqueLands = new Map(farmerMatches.map(item => [String(item.id || item.nop), item]));
+      if (uniqueLands.size > 0 && window.matchMedia('(max-width: 768px)').matches) {
+        const groups = [...new Set([...uniqueLands.values()].map(item => String(item.kelompok || '').trim() || 'Tanpa Kelompok'))]
+          .sort((a, b) => a.localeCompare(b, 'id'));
+        farmerSummary.hidden = false;
+        farmerSummary.textContent = `${uniqueLands.size} bidang · ${groups.length} kelompok: ${groups.join(', ')}`;
+      } else {
+        farmerSummary.hidden = true;
+        farmerSummary.textContent = '';
+      }
+    }
+
     // Update active filter icons on TH
     const colKeys = ['blokKelompok', 'bidangNop', 'namaWP', 'petani', 'nomorHp', 'luasPBB', 'totalLuasDaftar', 'koordinat', 'status'];
     colKeys.forEach(ck => {
@@ -4999,9 +5397,87 @@
     updateCalculationBar();
   }
 
+  function renderLahanMobileCard(item) {
+    const registrations = Array.isArray(item.petaniList) ? item.petaniList : [];
+    const firstRegistration = registrations[0] || {};
+    const searchTerm = (document.getElementById('search-keyword')?.value || '').trim().toLowerCase();
+    const matchingRegistration = searchTerm ? registrations.find(person =>
+      String(person.nik || '').toLowerCase().includes(searchTerm) ||
+      String(person.nama || person.namaPetani || '').toLowerCase().includes(searchTerm)
+    ) : null;
+    const displayedRegistration = matchingRegistration || firstRegistration;
+    const firstFarmer = displayedRegistration.nama || displayedRegistration.namaPetani || item.petani || '';
+    const otherRegistrantCount = Math.max(0, registrations.length - 1);
+    const isChecked = LahanState.selectedIds.has(item.id);
+    const statusText = item.status === 'ganda'
+      ? `Terdaftar ${item.countPendaftar || registrations.length}x`
+      : item.isTerdaftar ? 'Terdaftar' : 'Belum terdaftar';
+    const statusClass = item.status === 'ganda' ? 'badge-warning' : item.isTerdaftar ? 'badge-aktif' : 'badge-secondary';
+    const farmerSummary = item.isTerdaftar
+      ? `<span class="lahan-mobile-farmer-name">${escapeHtml(firstFarmer || 'Petani terdaftar')}${otherRegistrantCount > 0 ? ` <small>+${otherRegistrantCount} lainnya</small>` : ''}</span>`
+      : '<span class="lahan-mobile-farmer-name" style="color: var(--text-muted);">Belum terdaftar</span>';
+    const farmerDetails = registrations.length
+      ? registrations.map(person => {
+          const name = person.nama || person.namaPetani || '-';
+          const nik = person.nik || '-';
+          const luas = Number(person.luas !== undefined ? person.luas : person.luasDidaftarkan) || 0;
+          return `<div class="lahan-mobile-detail-row"><strong>${escapeHtml(name)}</strong><span class="lahan-mobile-detail-value">NIK ${escapeHtml(nik)} · ${luas.toLocaleString('id-ID')} m²</span></div>`;
+        }).join('')
+      : item.isTerdaftar
+        ? `<div class="lahan-mobile-detail-row"><strong>${escapeHtml(item.petani || '-')}</strong><span class="lahan-mobile-detail-value">NIK ${escapeHtml(item.nik || '-')}</span></div>`
+        : '<div class="lahan-mobile-detail-row">Belum ada pendaftar.</div>';
+    const actions = registrations.map(person => {
+      const transactionId = person.id || person.idTransaksi || '';
+      if (!transactionId) return '';
+      const name = person.nama || person.namaPetani || 'Petani';
+      const safeId = escapeForInlineHandler(transactionId);
+      return `<button type="button" class="btn btn-secondary btn-sm" onclick="openEditModal('${safeId}')" aria-label="Edit ${escapeHtml(name)}">Edit ${escapeHtml(name)}</button><button type="button" class="btn btn-danger btn-sm" onclick="handleSoftDelete('${safeId}')" aria-label="Batalkan transaksi ${escapeHtml(name)}">Batalkan</button>`;
+    }).join('');
+    const koordinat = String(item.koordinat || '').trim();
+    const mapsUrl = koordinat ? `https://www.google.com/maps?q=${encodeURIComponent(koordinat)}` : '';
+    const sisaLuas = Number(item.sisaLuasPBB);
+
+    return `
+      <article class="lahan-mobile-card${isChecked ? ' is-selected' : ''}">
+        <div class="lahan-mobile-card-head">
+          <div class="lahan-mobile-place-title">
+            Blok ${escapeHtml(item.blok)} · Bidang ${escapeHtml(item.bidang)}
+            <span class="lahan-mobile-place-group">${escapeHtml(item.kelompok || 'Tanpa Kelompok')}</span>
+          </div>
+          <label class="lahan-mobile-card-select">
+            <input type="checkbox" value="${escapeHtml(item.id)}" ${isChecked ? 'checked' : ''} onchange="toggleRowCheckbox('${escapeForInlineHandler(item.id)}', ${Number(item.luasPBB) || 0}, this.checked, this)" aria-label="Pilih bidang ${escapeHtml(item.bidang)} di blok ${escapeHtml(item.blok)}">
+          </label>
+        </div>
+        <div class="lahan-mobile-card-person">
+          ${farmerSummary}
+          <div>
+            <span class="badge ${statusClass}">${statusText}</span>
+            ${item.isLuasBerlebih ? '<div style="margin-top: 4px;"><span class="badge badge-danger">Luas berlebih</span></div>' : ''}
+          </div>
+        </div>
+        <div class="lahan-mobile-card-metrics">
+          <div><span>Luas PBB</span><strong>${Number(item.luasPBB || 0).toLocaleString('id-ID')} m²</strong></div>
+          <div><span>Luas terdaftar</span><strong>${item.isTerdaftar ? `${Number(item.totalLuasDaftar || 0).toLocaleString('id-ID')} m²` : '-'}</strong></div>
+        </div>
+        <details class="lahan-mobile-card-details">
+          <summary>Detail lahan dan pendaftar</summary>
+          <div class="lahan-mobile-detail-row"><span class="lahan-mobile-detail-label">NOP</span><span class="lahan-mobile-detail-value">${escapeHtml(item.nop || '-')}</span></div>
+          <div class="lahan-mobile-detail-row"><span class="lahan-mobile-detail-label">Nama WP</span><span class="lahan-mobile-detail-value">${escapeHtml(item.namaWP || '-')}</span><span class="lahan-mobile-detail-value">${escapeHtml(item.alamatWP || '-')}</span></div>
+          <div class="lahan-mobile-detail-row"><span class="lahan-mobile-detail-label">Nomor HP</span><span class="lahan-mobile-detail-value">${escapeHtml(getNomorHpValue(item) || '-')}</span></div>
+          <div class="lahan-mobile-detail-row"><span class="lahan-mobile-detail-label">Koordinat</span><span class="lahan-mobile-detail-value">${escapeHtml(koordinat || '-')}</span>${mapsUrl ? `<a href="${mapsUrl}" target="_blank" rel="noopener">Buka di Maps</a>` : ''}</div>
+          <div class="lahan-mobile-detail-row"><span class="lahan-mobile-detail-label">Sisa luas PBB</span><span class="lahan-mobile-detail-value">${Number.isFinite(sisaLuas) ? `${sisaLuas.toLocaleString('id-ID')} m²` : '-'}</span></div>
+          <div class="lahan-mobile-detail-row"><span class="lahan-mobile-detail-label">Semua pendaftar</span>${farmerDetails}</div>
+          ${actions ? `<div class="lahan-mobile-actions">${actions}</div>` : ''}
+        </details>
+      </article>
+    `;
+  }
+
   function renderLahanTable(data) {
     const tbody = document.getElementById('histori-table-tbody');
     if (!tbody) return;
+    const mobileCards = document.getElementById('lahan-mobile-cards');
+    const isMobile = window.matchMedia('(max-width: 768px)').matches;
 
     const visibleData = data || [];
     const pageSize = Number(LahanState.pageSize) || 100;
@@ -5013,6 +5489,9 @@
     const pageRows = visibleData.slice(startIndex, startIndex + pageSize);
 
     if (!pageRows || pageRows.length === 0) {
+      if (mobileCards) mobileCards.innerHTML = '<p class="lahan-mobile-empty">Tidak ada bidang lahan yang cocok dengan filter aktif.</p>';
+      const mobileSelectAll = document.getElementById('check-all-master-mobile');
+      if (mobileSelectAll) mobileSelectAll.checked = false;
       tbody.innerHTML = `
         <tr>
           <td colspan="12" style="text-align: center; color: var(--text-muted); padding: 36px;">
@@ -5026,12 +5505,26 @@
 
     // Sync master checkbox for the current page only
     const checkAllMaster = document.getElementById('check-all-master');
+    const mobileSelectAll = document.getElementById('check-all-master-mobile');
+    const allChecked = pageRows.length > 0 && pageRows.every(d => LahanState.selectedIds.has(d.id));
+    const someChecked = pageRows.some(d => LahanState.selectedIds.has(d.id));
     if (checkAllMaster) {
-      const allChecked = pageRows.length > 0 && pageRows.every(d => LahanState.selectedIds.has(d.id));
-      const someChecked = pageRows.some(d => LahanState.selectedIds.has(d.id));
       checkAllMaster.checked = allChecked;
       checkAllMaster.indeterminate = !allChecked && someChecked;
     }
+    if (mobileSelectAll) {
+      mobileSelectAll.checked = allChecked;
+      mobileSelectAll.indeterminate = !allChecked && someChecked;
+    }
+
+    if (isMobile && mobileCards) {
+      tbody.innerHTML = '';
+      mobileCards.innerHTML = pageRows.map(renderLahanMobileCard).join('');
+      updateTablePagingUI();
+      return;
+    }
+
+    if (mobileCards) mobileCards.innerHTML = '';
 
     tbody.innerHTML = pageRows.map((item, idx) => {
       const isChecked = LahanState.selectedIds.has(item.id);
@@ -5180,7 +5673,7 @@
   /* ============================================================
    * Checkbox & Calculator Logic
    * ============================================================ */
-  function toggleRowCheckbox(rowId, luas, checked) {
+  function toggleRowCheckbox(rowId, luas, checked, checkbox) {
     if (checked) {
       LahanState.selectedIds.add(rowId);
     } else {
@@ -5188,12 +5681,21 @@
     }
 
     const checkAllMaster = document.getElementById('check-all-master');
+    const mobileSelectAll = document.getElementById('check-all-master-mobile');
     const pageRows = getCurrentPageRows();
+    const allChecked = pageRows.length > 0 && pageRows.every(d => LahanState.selectedIds.has(d.id));
+    const someChecked = pageRows.some(d => LahanState.selectedIds.has(d.id));
     if (checkAllMaster) {
-      const allChecked = pageRows.length > 0 && pageRows.every(d => LahanState.selectedIds.has(d.id));
-      const someChecked = pageRows.some(d => LahanState.selectedIds.has(d.id));
       checkAllMaster.checked = allChecked;
       checkAllMaster.indeterminate = !allChecked && someChecked;
+    }
+    if (mobileSelectAll) {
+      mobileSelectAll.checked = allChecked;
+      mobileSelectAll.indeterminate = !allChecked && someChecked;
+    }
+    if (checkbox) {
+      const card = checkbox.closest('.lahan-mobile-card');
+      if (card) card.classList.toggle('is-selected', checked);
     }
 
     updateCalculationBar();
@@ -5216,9 +5718,14 @@
   function clearAllCheckedRows() {
     LahanState.selectedIds.clear();
     const checkAllMaster = document.getElementById('check-all-master');
+    const mobileSelectAll = document.getElementById('check-all-master-mobile');
     if (checkAllMaster) {
       checkAllMaster.checked = false;
       checkAllMaster.indeterminate = false;
+    }
+    if (mobileSelectAll) {
+      mobileSelectAll.checked = false;
+      mobileSelectAll.indeterminate = false;
     }
     renderLahanTable(LahanState.filteredData || []);
     updateCalculationBar();
@@ -5913,7 +6420,6 @@
 
     container.innerHTML = bidangs.map((b, idx) => {
       const blokOptions = getBlokOptionsHtml(b.blok);
-      const prefixOptions = getPrefixOptionsHtml(b.prefixNop);
       const isDel = b.isDeleted;
 
       return `
@@ -5930,12 +6436,6 @@
           </div>
 
           <div class="form-row" style="${isDel ? 'pointer-events: none;' : ''}">
-            <div class="form-group">
-              <label>Prefix NOP</label>
-              <select class="form-control" onchange="onEditBidangFieldChange(${idx}, 'prefixNop', this.value)">
-                ${prefixOptions}
-              </select>
-            </div>
             <div class="form-group">
               <label>Blok (Ketik Nomor)</label>
               <input type="number" class="form-control" placeholder="Contoh: 1" min="1" max="999" value="${b.blok || ''}"
