@@ -2068,6 +2068,29 @@
       justify-content: center;
     }
 
+    .m-select-all-hidden {
+      display: none !important;
+    }
+
+    #m-menu-extra {
+      display: grid;
+      gap: 8px;
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid var(--border-color);
+    }
+
+    #m-menu-export-count {
+      color: var(--text-muted);
+      font-size: 0.74rem;
+    }
+
+    .m-menu-action {
+      width: 100%;
+      min-height: 44px;
+      justify-content: flex-start;
+    }
+
     #histori-view .header-title-wrap {
       display: flex;
       align-items: baseline;
@@ -2762,7 +2785,7 @@
           </div>
         </div>
         <div id="lahan-mobile-list" class="lahan-mobile-list">
-          <label class="lahan-mobile-select-all">
+          <label class="lahan-mobile-select-all m-select-all-hidden">
             <input type="checkbox" id="check-all-master-mobile" onchange="toggleSelectAllRows(this.checked)">
             <span>Pilih semua bidang di halaman</span>
           </label>
@@ -2787,13 +2810,19 @@
       </div>
 
       <div id="m-menu" class="m-only m-sheet-overlay" hidden onclick="if(event.target===this)closeMobileMenu()">
-        <section class="m-sheet-panel" role="dialog" aria-modal="true" aria-labelledby="m-menu-title" onclick="event.stopPropagation()">
+        <section class="m-sheet-panel" role="dialog" aria-modal="true" aria-labelledby="m-menu-title" onclick="if(event.target.closest('#m-menu-actions button, #m-menu-extra button'))closeMobileMenu();event.stopPropagation()">
           <header class="m-sheet-header">
             <h2 id="m-menu-title">Menu data</h2>
             <button type="button" class="m-icon-button" onclick="closeMobileMenu()" aria-label="Tutup menu">✕</button>
           </header>
           <div id="m-menu-actions"></div>
-          <div id="m-menu-extra"></div>
+          <div id="m-menu-extra">
+            <button type="button" class="btn btn-secondary m-menu-action" onclick="toggleSelectAllRows(true);closeMobileMenu()">☑ Pilih semua di halaman</button>
+            <div id="m-menu-export-count" aria-live="polite"></div>
+            <button type="button" class="btn btn-secondary m-menu-action" onclick="exportFilteredExcel();closeMobileMenu()">📊 Ekspor Excel (.xlsx)</button>
+            <button type="button" class="btn btn-secondary m-menu-action" onclick="exportFilteredPDF();closeMobileMenu()">📄 Ekspor PDF</button>
+            <button type="button" class="btn btn-secondary m-menu-action" onclick="exportFilteredCSV();closeMobileMenu()">📋 Ekspor CSV</button>
+          </div>
         </section>
       </div>
 
@@ -4412,7 +4441,12 @@
   function toggleMobileMenu() {
     closeMobileFilterSheet();
     const menu = document.getElementById('m-menu');
-    if (menu) menu.hidden = !menu.hidden;
+    if (!menu) return;
+    menu.hidden = !menu.hidden;
+    if (!menu.hidden) {
+      const exportCount = document.getElementById('m-menu-export-count');
+      if (exportCount) exportCount.textContent = `Mengekspor ${getExportRows().length} baris`;
+    }
   }
 
   function closeMobileMenu() {
