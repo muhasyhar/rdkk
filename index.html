@@ -1763,6 +1763,47 @@
       flex: 1;
     }
 
+    #auth-status-container {
+      min-height: 30px;
+      max-height: 30px;
+      align-items: center;
+      gap: 6px;
+    }
+
+    #auth-status-container > span {
+      max-width: calc(100% - 40px);
+      overflow: hidden;
+      color: var(--text-secondary) !important;
+      font-size: 0.68rem !important;
+      line-height: 1;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    #auth-status-container > .btn {
+      display: flex;
+      width: 32px;
+      min-width: 32px;
+      height: 30px;
+      min-height: 30px;
+      flex: 0 0 32px;
+      justify-content: center;
+      margin: 0 !important;
+      padding: 0 !important;
+      overflow: hidden;
+      font-size: 0 !important;
+    }
+
+    #auth-status-container > .btn::after {
+      content: "⏻";
+      font-size: 0.9rem;
+      line-height: 1;
+    }
+
+    #auth-status-container > .btn[onclick="openLoginModal()"]::after {
+      content: "🔐";
+    }
+
     .app-content {
       padding: 12px 12px 102px;
     }
