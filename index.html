@@ -1888,13 +1888,17 @@
       margin: -8px -8px 6px;
     }
 
+    /* .header-inline-row sekaligus ber-class .form-row, dan aturan .form-row
+       muncul belakangan dengan spesifisitas sama sehingga template kolomnya
+       ditimpa menjadi 2 kolom sama besar. !important menjaga kolom kedua
+       tetap shrink-wrap tombol Filter/Menu. */
     #histori-view .header-inline-row {
       position: sticky;
       top: 88px;
       z-index: 1200;
       order: 0;
       display: grid !important;
-      grid-template-columns: minmax(0, 1fr) auto;
+      grid-template-columns: minmax(0, 1fr) auto !important;
       grid-template-areas: "search actions" "summary summary";
       align-items: center;
       gap: 4px 8px;
@@ -1912,8 +1916,26 @@
     #histori-view .metrics-strip { order: 2; }
 
     #histori-view .header-inline-row .m-search-field {
-      grid-area: search;
+      /* Penempatan eksplisit 1/1 - 1/2:.grid-column: 1 atau grid-area: search
+         di-resolve browser sampai kolom terakhir sehingga field menutupi
+         tombol Filter/Menu. */
+      grid-row: 1 / 2;
+      grid-column: 1 / 2;
       min-width: 0 !important;
+    }
+
+    /* Input search harus mengikuti lebar kolomnya, bukan lebar intrinsik
+       default (size=20) yang sebelumnya menutupi tombol Filter/Menu. Font
+       input tetap 16px (wajib, agar iOS tidak auto-zoom saat fokus); hanya
+       placeholder yang diperkecil. */
+    #histori-view .header-inline-row .m-search-field .form-control {
+      display: block;
+      width: 100%;
+      min-width: 0;
+    }
+
+    #histori-view .header-inline-row .m-search-field .form-control::placeholder {
+      font-size: 0.8rem;
     }
 
     #histori-view .header-inline-row .form-control {
@@ -1930,6 +1952,9 @@
     #m-search-actions {
       grid-area: actions;
       align-items: center;
+      align-self: center;
+      justify-self: end;
+      justify-content: flex-end;
       gap: 6px;
     }
 
@@ -2395,7 +2420,9 @@
       padding: 6px 4px;
     }
 
-    #histori-view .header-inline-row .form-group:first-child {
+    /* Field pertama tetap membentang penuh, kecuali field pencarian yang
+       punya kolom sendiri (kolom 1) di baris pencarian mobile. */
+    #histori-view .header-inline-row .form-group:first-child:not(.m-search-field) {
       grid-column: 1 / -1;
     }
 
