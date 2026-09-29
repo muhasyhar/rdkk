@@ -2037,6 +2037,37 @@
       justify-content: flex-start;
     }
 
+    #m-filter-status-options {
+      display: grid;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .m-filter-section-title {
+      color: var(--text-muted);
+      font-size: 0.72rem;
+      font-weight: 700;
+    }
+
+    #m-filter-status-options .filter-chip-btn {
+      width: 100%;
+      min-height: 44px;
+      justify-content: space-between;
+      padding: 8px 12px;
+      border-radius: var(--radius-sm);
+      font-size: 0.86rem;
+    }
+
+    #m-filter-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    #m-filter-actions .btn {
+      flex: 1;
+      justify-content: center;
+    }
+
     #histori-view .header-title-wrap {
       display: flex;
       align-items: baseline;
@@ -2746,9 +2777,11 @@
             <button type="button" class="m-icon-button" onclick="closeMobileFilterSheet()" aria-label="Tutup filter">✕</button>
           </header>
           <div id="m-filter-fields"></div>
-          <div id="m-filter-status-options"></div>
+          <div id="m-filter-status-options">
+            <h3 class="m-filter-section-title">Status lanjutan</h3>
+          </div>
           <div id="m-filter-actions">
-            <button type="button" class="btn btn-primary" onclick="closeMobileFilterSheet()">Terapkan</button>
+            <button type="button" class="btn btn-primary m-filter-apply" onclick="closeMobileFilterSheet()">Terapkan</button>
           </div>
         </section>
       </div>
@@ -4320,6 +4353,8 @@
     const movableElements = [
       ['search-blok', 'm-filter-fields'],
       ['search-kelompok', 'm-filter-fields'],
+      ['chip-filter-ganda', 'm-filter-status-options'],
+      ['chip-filter-berlebih', 'm-filter-status-options'],
       ['btn-sync-koordinat-histori', 'm-menu-actions'],
       ['btn-sync-dbwp-histori', 'm-menu-actions'],
       ['btn-reload-histori', 'm-menu-actions'],
@@ -4341,7 +4376,7 @@
       }
 
       if (id === 'search-blok' || id === 'search-kelompok') {
-        element.parentElement?.classList.add('m-relocated-field-slot');
+        placeholder.parentElement?.classList.add('m-relocated-field-slot');
       }
 
       if (isMobile) {
@@ -4358,6 +4393,8 @@
     if (!isMobile) {
       closeMobileFilterSheet();
       closeMobileMenu();
+      const farmerSummary = document.getElementById('farmer-filter-summary');
+      if (farmerSummary) farmerSummary.hidden = true;
     }
   }
 
@@ -4381,6 +4418,27 @@
   function closeMobileMenu() {
     const menu = document.getElementById('m-menu');
     if (menu) menu.hidden = true;
+  }
+
+  function updateMobileFilterBadge() {
+    const badge = document.getElementById('m-filter-badge');
+    if (!badge) return;
+
+    const blok = document.getElementById('search-blok');
+    const kelompok = document.getElementById('search-kelompok');
+    const activeColumns = Object.values(LahanState.columnFilters || {})
+      .filter(values => values && values.size > 0).length;
+    const activeCount = Number(!!(blok && blok.value.trim())) +
+      Number(!!(kelompok && kelompok.value.trim())) +
+      Number(LahanState.statusFilter === 'ganda' || LahanState.statusFilter === 'berlebih') +
+      activeColumns;
+
+    badge.textContent = String(activeCount);
+    badge.hidden = activeCount === 0;
+    const filterButton = document.getElementById('m-btn-filter');
+    if (filterButton) {
+      filterButton.setAttribute('aria-label', activeCount ? `Buka filter, ${activeCount} aktif` : 'Buka filter');
+    }
   }
 
   function switchView(viewId) {
@@ -5675,6 +5733,7 @@
 
     renderLahanTable(filtered);
     updateCalculationBar();
+    updateMobileFilterBadge();
   }
 
   function renderLahanMobileCard(item) {
