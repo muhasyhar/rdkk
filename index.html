@@ -2680,6 +2680,334 @@
       display: none !important;
     }
   }
+
+  /* ============================================================
+     FASE 2 - Header rapat "Cari & Rekap" (#histori-view) untuk
+     desktop (lebar > 768px). Semua aturan dasar dan seluruh blok
+     @media (max-width: 768px) di atas dibiarkan utuh; perubahan
+     hanya lewat override di dalam media query desktop ini.
+     ============================================================ */
+  @media (min-width: 769px) {
+    /* Grid 3 kolom didefinisikan pada blok (min-width: 1500px) di bawah,
+       karena baris 1 (judul + KPI + aksi) membutuhkan lebar minimum
+       ±1470px agar tidak saling tumpang tindih. */
+    #histori-view .data-header-sticky {
+      display: grid !important;
+      align-items: center;
+      gap: 6px 12px;
+      padding: 6px 8px;
+    }
+
+    /* Mopensource wrapper: anak langsung menjadi grid item */
+    #histori-view .data-header-sticky .header-main-row,
+    #histori-view .data-header-sticky .metrics-strip,
+    #histori-view .data-header-sticky .header-secondary-row {
+      display: contents !important;
+    }
+
+    /* Placeholder relokasi versi mobile disembunyikan di desktop */
+    #histori-view .m-ph,
+    #histori-view .m-relocated-field-slot > .m-ph {
+      display: none !important;
+    }
+
+    /* Baris 1 - judul + jumlah hasil */
+    #histori-view .header-title-wrap {
+      grid-area: title;
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      min-width: 0;
+      white-space: nowrap;
+    }
+
+    #histori-view .main-title {
+      font-size: 0.88rem;
+      font-weight: 700;
+      line-height: 1.25;
+    }
+
+    #histori-view .header-total {
+      flex: 0 0 auto;
+      color: var(--text-muted);
+      font-size: 0.66rem;
+    }
+
+    /* Baris 1 - KPI */
+    #histori-view .metrics-kpi-row {
+      grid-area: kpi;
+      flex-wrap: nowrap;
+      gap: 4px;
+      min-width: 0;
+      padding: 0;
+      overflow: visible;
+      scrollbar-width: none;
+    }
+
+    #histori-view .metrics-kpi-row::-webkit-scrollbar {
+      display: none;
+    }
+
+    #histori-view .metric-kpi-item {
+      padding: 2px 6px;
+      gap: 3px;
+      font-size: 0.7rem;
+    }
+
+    #histori-view .metric-kpi-item strong {
+      font-size: 0.74rem;
+    }
+
+    #histori-view .metric-kpi-item small {
+      font-size: 0.64rem;
+    }
+
+    /* Baris 1 - tombol aksi */
+    #histori-view .header-actions {
+      grid-area: actions;
+      justify-self: end;
+      display: flex;
+      align-items: center;
+      flex-wrap: nowrap;
+      gap: 5px;
+      min-width: 0;
+    }
+
+    #histori-view .header-actions .btn {
+      gap: 5px;
+      padding: 3px 6px;
+      font-size: 0.7rem;
+      white-space: nowrap;
+    }
+
+    /* Baris 2 - input filter */
+    #histori-view .header-inline-row {
+      grid-area: filters;
+      display: flex !important;
+      align-items: center;
+      flex-wrap: nowrap;
+      gap: 6px;
+      min-width: 0;
+      margin: 0 !important;
+      padding: 0 !important;
+      border: 0 !important;
+      border-radius: 0 !important;
+      background: transparent !important;
+      box-shadow: none;
+    }
+
+    #histori-view .header-inline-row .form-group {
+      margin: 0 !important;
+      min-width: 0;
+    }
+
+    #histori-view .header-inline-row .m-search-field {
+      flex: 1 1 260px;
+      min-width: 240px !important;
+    }
+
+    #histori-view .header-inline-row .form-group:has(#search-blok) {
+      flex: 0 0 90px;
+      min-width: 90px !important;
+    }
+
+    #histori-view .header-inline-row .form-group:has(#search-kelompok) {
+      flex: 0 0 170px;
+      min-width: 170px !important;
+    }
+
+    #histori-view .header-inline-row .form-control {
+      height: 32px !important;
+      min-height: 32px;
+      padding: 4px 8px !important;
+      font-size: 0.75rem !important;
+    }
+
+    /* Baris 2 - paging */
+    #histori-view .table-toolbar {
+      grid-area: paging;
+      justify-self: end;
+      justify-content: flex-end;
+      gap: 6px;
+      margin: 0 !important;
+      padding: 0 !important;
+      border: 0;
+      border-radius: 0;
+      background: transparent;
+    }
+
+    #histori-view #table-page-summary {
+      display: none !important;
+    }
+
+    #histori-view .table-toolbar .toolbar-actions {
+      gap: 4px;
+    }
+
+    #histori-view .table-toolbar .toolbar-actions select,
+    #histori-view .table-toolbar .toolbar-actions button {
+      min-height: 26px;
+      font-size: 0.72rem;
+    }
+
+    /* Baris 3 - chip status + reset */
+    #histori-view .filter-chips-bar {
+      grid-area: chips;
+      flex-wrap: nowrap;
+      gap: 4px;
+      min-width: 0;
+      padding: 0;
+      scrollbar-width: none;
+    }
+
+    #histori-view .filter-chips-bar::-webkit-scrollbar {
+      display: none;
+    }
+
+    #histori-view .filter-chip-btn {
+      padding: 2px 7px;
+      min-height: 22px;
+      font-size: 0.7rem;
+    }
+
+    #histori-view .filter-chip-btn .chip-count {
+      padding: 0 4px;
+      font-size: 0.66rem;
+    }
+
+    /* Baris 3 - kalkulator luas */
+    #histori-view .metrics-calc-row {
+      grid-area: calc;
+      justify-self: end;
+      flex-wrap: nowrap;
+      gap: 6px;
+      padding: 0;
+      overflow: visible;
+      scrollbar-width: none;
+    }
+
+    #histori-view .metrics-calc-row::-webkit-scrollbar {
+      display: none;
+    }
+
+    #histori-view .calc-summary-badge {
+      gap: 5px;
+      padding: 2px 7px;
+      font-size: 0.7rem;
+    }
+
+    #histori-view .calc-summary-badge strong {
+      font-size: 0.72rem;
+    }
+
+    #histori-view .metrics-calc-row .btn {
+      gap: 4px;
+      padding: 3px 7px;
+      font-size: 0.7rem;
+      white-space: nowrap;
+    }
+
+    /* Elemen khusus mobile tidak boleh muncul di desktop */
+    #histori-view .m-only {
+      display: none !important;
+    }
+
+    /* Dropdown Ekspor & popover filter kolom tetap di atas tabel */
+    #histori-view #export-dropdown-menu {
+      z-index: 60;
+    }
+
+    #excel-filter-popover {
+      z-index: 2500;
+    }
+  }
+
+  /* Layout 3 baris (judul + KPI + aksi / filter + paging / chip + kalkulator).
+     Hanya berlaku di >= 1500px: baris 1 punya lebar minimum ±1470px. */
+  @media (min-width: 1500px) {
+    #histori-view .data-header-sticky {
+      grid-template-columns: minmax(0, auto) minmax(0, 1fr) auto;
+      grid-template-areas:
+        "title   kpi     actions"
+        "filters filters paging"
+        "chips   chips   calc";
+    }
+
+    /* Jaring pengaman: KPI tidak pernah menimpa tombol aksi */
+    #histori-view .metrics-kpi-row {
+      overflow-x: auto;
+      overflow-y: hidden;
+    }
+  }
+
+  /* Lebar 769-1499px: 3 kolom terlalu sesak, KPI turun ke baris penuh
+     sehingga tidak ada tumpang tindih maupun elemen terpotong. */
+  @media (min-width: 769px) and (max-width: 1499px) {
+    #histori-view .data-header-sticky {
+      grid-template-columns: minmax(0, 1fr) auto;
+      grid-template-areas:
+        "title   actions"
+        "kpi     kpi"
+        "filters paging"
+        "chips   calc";
+    }
+
+    #histori-view .metrics-kpi-row {
+      flex-wrap: wrap;
+      row-gap: 4px;
+      justify-content: flex-start;
+    }
+
+    #histori-view .header-actions {
+      justify-self: end;
+    }
+  }
+
+  /* Lebar 769-1100px: judul + aksi tetap satu baris, judul boleh turun 2 baris */
+  @media (min-width: 769px) and (max-width: 1100px) {
+    #histori-view .header-title-wrap {
+      white-space: normal;
+    }
+
+    #histori-view .main-title {
+      font-size: 0.86rem;
+    }
+
+    #histori-view .header-actions .btn {
+      padding: 3px 6px;
+      font-size: 0.68rem;
+    }
+
+    #histori-view .header-inline-row .m-search-field {
+      min-width: 160px !important;
+    }
+
+    #histori-view .header-inline-row .form-group:has(#search-blok) {
+      flex: 0 0 80px;
+      min-width: 80px !important;
+    }
+
+    #histori-view .header-inline-row .form-group:has(#search-kelompok) {
+      flex: 0 0 120px;
+      min-width: 120px !important;
+    }
+
+    #histori-view .header-inline-row .form-control {
+      height: 30px !important;
+      min-height: 30px;
+      font-size: 0.72rem !important;
+    }
+  }
+
+  /* Lebar 769-960px: lebar kolom tidak cukup untuk 1 baris chip,
+     chip turun 2 baris supaya tidak ada gulir horizontal tersembunyi. */
+  @media (min-width: 769px) and (max-width: 960px) {
+    #histori-view .filter-chips-bar {
+      flex-wrap: wrap;
+      row-gap: 4px;
+      overflow-x: visible;
+    }
+  }
   </style>
 </head>
 <body>
