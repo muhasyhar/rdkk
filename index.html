@@ -3,7 +3,11 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>Aplikasi Pendataan e-RDKK</title>
+  <title>e-RDKK</title>
+  <link rel="icon" href="data:image/svg+xml,
+	<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'>
+	<text y='.9em' font-size='90'>🌾</text>
+	</svg>">
 
   <!-- ============================================================
        Global Stylesheet (di-inline dari frontend/style.css.html)
@@ -1798,10 +1802,7 @@
       </button>
     </nav>
 
-    <div class="user-auth-section" id="auth-status-container">
-      <button onclick="openLoginModal()" class="btn btn-secondary btn-sm">Login Superuser</button>
-      <button onclick="openProductionSmokeModal()" class="btn btn-primary btn-sm" title="Run quick smoke test untuk endpoint utama">QA Smoke Test</button>
-    </div>
+    <div class="user-auth-section" id="auth-status-container"></div>
   </header>
 
   <nav class="mobile-bottom-nav" aria-label="Navigasi utama mobile">
@@ -1815,24 +1816,6 @@
       <span>⚙️</span>
     </button>
   </nav>
-
-  <div id="production-smoke-modal" class="modal" style="display:none;">
-    <div class="modal-content" style="max-width: 900px; max-height: 80vh; overflow: auto;">
-      <div class="modal-header">
-        <h3>Production Smoke Test</h3>
-        <button type="button" onclick="closeProductionSmokeModal()" class="btn btn-secondary btn-sm">✕</button>
-      </div>
-      <div class="modal-body">
-        <p style="margin: 0 0 12px; color: var(--text-secondary);">Menjalankan pengecekan endpoint utama aplikasi dari frontend produksi.</p>
-        <div id="production-smoke-summary" style="margin-bottom: 12px; font-weight: 600;"></div>
-        <div id="production-smoke-results" style="display: grid; gap: 10px;"></div>
-      </div>
-      <div class="modal-footer" style="margin-top: 12px; display: flex; justify-content: flex-end; gap: 8px;">
-        <button type="button" class="btn btn-secondary" onclick="closeProductionSmokeModal()">Tutup</button>
-        <button type="button" class="btn btn-primary" onclick="runOneClickProductionSmokeTest()">Jalankan Lagi</button>
-      </div>
-    </div>
-  </div>
 
   <!-- ============================================================
        App Content Views
@@ -3663,9 +3646,17 @@
     setupNavigation();
     setupMobileSheetInteractions();
     initPosBidangs();
+    // Single-user default: langsung aktif sebagai Admin tanpa login.
+    // Bila token tersimpan, hydrateAuthFromToken() menggantinya dengan sesi asli.
+    if (!AppState.isSuperuser) {
+      AppState.isSuperuser = true;
+      AppState.superuser = { username: 'Admin', role: 'Superuser', namaLengkap: 'Admin' };
+    }
     hydrateAuthFromToken();
+    updateAuthUI();
     loadInitialData();
     setupPosListeners();
+    setupEditModalListeners();
     restoreSmartCacheFromStorage();
     startSmartCacheAutoRefresh();
     loadSmartCache(true);
@@ -3864,15 +3855,26 @@
   function updateAuthUI() {
     const authContainer = document.getElementById('auth-status-container');
     if (!authContainer) return;
-    // BYPASSED: Single-user app, no login required.
-    // Always render as logged-in Admin without logout/login buttons.
-    AppState.isSuperuser = true;
-    AppState.superuser = { username: 'Admin', role: 'Superuser', namaLengkap: 'Admin' };
-    authContainer.innerHTML = `
-      <span style="font-size: 0.85rem; color: var(--accent-emerald); font-weight: 600;">
-        Mode: Admin (Single-User)
-      </span>
-    `;
+
+    if (AppState.isSuperuser && AppState.superuser) {
+      const displayName = AppState.superuser.namaLengkap || AppState.superuser.username || 'Single-User';
+      authContainer.innerHTML = `
+        <span style="font-size: 0.85rem; color: var(--accent-emerald); font-weight: 600;">
+          Mode: Admin (${escapeHtml(displayName)})
+        </span>
+        <button type="button" onclick="handleLogout()" title="Keluar dari sesi administrator"
+                class="btn btn-secondary btn-sm" style="margin-left: 8px; padding: 2px 10px; font-size: 0.78rem;">
+          ⏻ Logout
+        </button>
+      `;
+    } else {
+      authContainer.innerHTML = `
+        <button type="button" onclick="openLoginModal()" title="Masuk sebagai administrator"
+                class="btn btn-secondary btn-sm" style="padding: 2px 10px; font-size: 0.78rem;">
+          🔐 Login Admin
+        </button>
+      `;
+    }
   }
 
   function getKelompokBadgeByBlok(blokNum) {
@@ -4304,6 +4306,33 @@
         }
       });
     }
+  }
+
+  function setupEditModalListeners() {
+    const modal = document.getElementById('edit-transaksi-modal');
+    if (!modal) return;
+
+    // Navigasi tombol Enter ala POS di modal edit (pindah fokus ke input berikutnya)
+    modal.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter') return;
+      const target = e.target;
+      if (!target || target.tagName === 'BUTTON' || target.tagName === 'TEXTAREA') return;
+
+      e.preventDefault();
+      const focusable = Array.from(
+        modal.querySelectorAll('input:not([type=hidden]):not([disabled]), select:not([disabled])')
+      ).filter(el => (el.offsetWidth > 0 || el.offsetHeight > 0));
+
+      const curIdx = focusable.indexOf(target);
+      if (curIdx >= 0 && curIdx < focusable.length - 1) {
+        const nextEl = focusable[curIdx + 1];
+        nextEl.focus();
+        if (typeof nextEl.select === 'function') nextEl.select();
+      } else if (curIdx === focusable.length - 1) {
+        const saveBtn = document.getElementById('btn-save-edit');
+        if (saveBtn) saveBtn.focus();
+      }
+    });
   }
 
   function checkNikHistory(nik) {
@@ -5753,6 +5782,20 @@
     }
   }
 
+  function onEditBidangBlur(idx) {
+    if (!AppState.currentEdit || !AppState.currentEdit.bidangs[idx]) return;
+    const b = AppState.currentEdit.bidangs[idx];
+    if (b.nomorBidang) {
+      setTimeout(() => {
+        const luasInput = document.getElementById(`edit-luas-${idx}`);
+        if (luasInput && document.activeElement !== luasInput) {
+          luasInput.focus();
+          if (typeof luasInput.select === 'function') luasInput.select();
+        }
+      }, 60);
+    }
+  }
+
   function fetchEditBidangNop(idx) {
     if (!AppState.currentEdit || !AppState.currentEdit.bidangs[idx]) return;
     const b = AppState.currentEdit.bidangs[idx];
@@ -5771,15 +5814,39 @@
     const applyResult = (result, fromCache) => {
       const current = AppState.currentEdit && AppState.currentEdit.bidangs[idx];
       if (!current || current.nop !== nopStr) return;
-      current.nopInfo = result;
+
+      // Saat mengedit, luasan lahan milik transaksi yang sedang diedit ini
+      // TIDAK dihitung sebagai "tanah lain yang terdaftar": sisa luas hanya
+      // dihitung dari transaksi LAIN pada NOP yang sama (double count).
+      let adjusted = result;
+      if (result && result.registrations && AppState.currentEdit) {
+        const ownId = String(AppState.currentEdit.idTransaksi || '').trim();
+        if (ownId) {
+          const own = result.registrations.filter(r => String(r.idTransaksi || '') === ownId);
+          if (own.length > 0) {
+            const ownLuas = own.reduce((s, r) => s + (Number(r.luasDidaftarkan) || 0), 0);
+            const totalAdj = Math.max(0, (Number(result.totalTerdaftar) || 0) - ownLuas);
+            const luasPBB = result.nopInfo ? (Number(result.nopInfo.luasPBB) || 0) : 0;
+            adjusted = {
+              nopInfo: result.nopInfo,
+              totalTerdaftar: totalAdj,
+              sisaLuas: luasPBB - totalAdj,
+              registrations: result.registrations.filter(r => String(r.idTransaksi || '') !== ownId),
+              koordinat: result.koordinat || ''
+            };
+          }
+        }
+      }
+
+      current.nopInfo = adjusted;
       current.nopInfoFromCache = !!fromCache;
 
       // Auto-fill koordinat dari dbwp jika sebelumnya kosong
-      if (result && result.koordinat && (!current.koordinat || current.koordinat.trim() === '')) {
-        current.koordinat = result.koordinat;
+      if (adjusted && adjusted.koordinat && (!current.koordinat || current.koordinat.trim() === '')) {
+        current.koordinat = adjusted.koordinat;
         const coordEl = document.getElementById(`edit-koordinat-${idx}`);
         if (coordEl && !coordEl.value) {
-          coordEl.value = result.koordinat;
+          coordEl.value = adjusted.koordinat;
         }
       }
 
@@ -5880,7 +5947,8 @@
             <div class="form-group">
               <label>Nomor Bidang</label>
               <input type="number" class="form-control" min="1" max="9999" value="${b.nomorBidang}"
-                     oninput="onEditBidangFieldChange(${idx}, 'nomorBidang', this.value)">
+                     oninput="onEditBidangFieldChange(${idx}, 'nomorBidang', this.value)"
+                     onblur="onEditBidangBlur(${idx})">
             </div>
           </div>
 
@@ -5892,7 +5960,7 @@
           <div class="form-row" style="${isDel ? 'pointer-events: none;' : ''}; margin-top: 10px;">
             <div class="form-group">
               <label>Luas Didaftarkan (m²)</label>
-              <input type="number" class="form-control" min="1" value="${b.luasDidaftarkan}"
+              <input type="number" id="edit-luas-${idx}" class="form-control" min="1" value="${b.luasDidaftarkan}"
                      oninput="onEditBidangFieldChange(${idx}, 'luasDidaftarkan', this.value)">
             </div>
             <div class="form-group">
@@ -6534,142 +6602,6 @@
   /* ============================================================
    * Toast System & Helpers
    * ============================================================ */
-  function openProductionSmokeModal() {
-    const modal = document.getElementById('production-smoke-modal');
-    if (modal) {
-      modal.style.display = 'flex';
-      runOneClickProductionSmokeTest();
-    }
-  }
-
-  function closeProductionSmokeModal() {
-    const modal = document.getElementById('production-smoke-modal');
-    if (modal) modal.style.display = 'none';
-  }
-
-  function renderSmokeRow(name, ok, details) {
-    const row = document.createElement('div');
-    row.style.border = '1px solid rgba(148,163,184,0.2)';
-    row.style.borderRadius = '10px';
-    row.style.padding = '10px 12px';
-    row.style.background = ok ? 'rgba(16,185,129,0.08)' : 'rgba(239,68,68,0.08)';
-    row.innerHTML = `
-      <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:6px;">
-        <strong>${escapeHtml(name)}</strong>
-        <span style="font-size:12px; font-weight:700; color: ${ok ? 'var(--accent-emerald)' : 'var(--accent-rose)'};">
-          ${ok ? 'OK' : 'FAIL'}
-        </span>
-      </div>
-      <div style="font-size: 0.8rem; color: var(--text-secondary); white-space: pre-wrap;">${escapeHtml(details)}</div>
-    `;
-    return row;
-  }
-
-  function runOneClickProductionSmokeTest() {
-    const summaryEl = document.getElementById('production-smoke-summary');
-    const resultsEl = document.getElementById('production-smoke-results');
-    if (!summaryEl || !resultsEl) return;
-
-    resultsEl.innerHTML = '';
-    summaryEl.textContent = 'Menjalankan smoke test...';
-
-    const checks = [
-      {
-        name: 'getInitialAppData',
-        action: 'getInitialAppData',
-        method: 'GET',
-        validate: (payload) => {
-          if (!payload || typeof payload !== 'object') return 'Response bukan object';
-          if (!Array.isArray(payload.prefixList)) return 'prefixList harus array';
-          if (!Array.isArray(payload.recentTransactions)) return 'recentTransactions harus array';
-          return true;
-        }
-      },
-      {
-        name: 'getUnifiedLahanData',
-        action: 'getUnifiedLahanData',
-        method: 'POST',
-        validate: (payload) => {
-          if (!payload || typeof payload !== 'object') return 'Response bukan object';
-          if (payload.success !== true) return 'success harus true';
-          if (!Array.isArray(payload.items)) return 'items harus array';
-          return true;
-        }
-      },
-      {
-        name: 'getDbwpData',
-        action: 'getDbwpData',
-        method: 'POST',
-        params: { limit: 20 },
-        validate: (payload) => {
-          if (!Array.isArray(payload)) return 'Response harus array';
-          return true;
-        }
-      },
-      {
-        name: 'getPosSnapshot (smart cache)',
-        action: 'getPosSnapshot',
-        method: 'POST',
-        validate: (payload) => {
-          if (!payload || typeof payload !== 'object') return 'Response bukan object';
-          if (payload.success !== true) return 'success harus true';
-          if (typeof payload.nops !== 'object') return 'nops harus object';
-          if (typeof payload.regs !== 'object') return 'regs harus object';
-          if (typeof payload.niks !== 'object') return 'niks harus object';
-          return true;
-        }
-      },
-      {
-        name: 'getSuperuserSession',
-        action: 'getSuperuserSession',
-        method: 'POST',
-        validate: (payload) => {
-          if (!payload || typeof payload !== 'object') return 'Response bukan object';
-          if (typeof payload.isLogged !== 'boolean') return 'isLogged harus boolean';
-          return true;
-        }
-      },
-      {
-        name: 'superuserLogin-invalid',
-        action: 'superuserLogin',
-        method: 'POST',
-        params: { username: 'fake-user', password: 'wrong-pass' },
-        validate: (payload) => {
-          if (!payload || typeof payload !== 'object') return 'Response bukan object';
-          if (payload.success !== false) return 'Credential salah harus gagal';
-          if (!payload.message) return 'message wajib ada';
-          return true;
-        }
-      }
-    ];
-
-    const runCheck = async () => {
-      const promises = checks.map(async (check) => {
-        try {
-          const result = await callGAS(check.action, check.params || {}, check.method);
-          const validation = check.validate(result);
-          const ok = validation === true;
-          resultsEl.appendChild(renderSmokeRow(check.name, ok, ok ? 'OK: ' + JSON.stringify(result).slice(0, 500) : String(validation)));
-          return ok;
-        } catch (err) {
-          resultsEl.appendChild(renderSmokeRow(check.name, false, 'ERROR: ' + (err && err.message ? err.message : String(err))));
-          return false;
-        }
-      });
-
-      const outcomes = await Promise.all(promises);
-      const passed = outcomes.filter(Boolean).length;
-      summaryEl.textContent = `Smoke test selesai: ${passed}/${checks.length} endpoint berhasil dipanggil dengan format yang benar.`;
-      if (passed !== checks.length) {
-        showToast('Beberapa smoke test gagal, cek detail di modal QA.', 'error');
-      } else {
-        showToast('Semua smoke test utama berhasil.', 'success');
-      }
-    };
-
-    runCheck();
-  }
-
   function showToast(message, type = 'info') {
     const container = document.getElementById('toast-container');
     if (!container) return;
