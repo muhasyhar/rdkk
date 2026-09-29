@@ -1882,6 +1882,8 @@
       top: auto;
       display: flex;
       flex-direction: column;
+      backdrop-filter: none;
+      -webkit-backdrop-filter: none;
       padding: 4px 6px 5px;
       margin: -8px -8px 6px;
     }
@@ -2137,6 +2139,174 @@
 
     #m-paging-container .toolbar-actions label {
       display: none;
+    }
+
+    #histori-view .metrics-calc-row {
+      display: none !important;
+    }
+
+    body.m-has-selection #histori-view .metrics-calc-row {
+      position: fixed;
+      z-index: 1250;
+      right: 12px;
+      bottom: calc(77px + env(safe-area-inset-bottom, 0px));
+      left: 12px;
+      display: flex !important;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 8px 10px;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      background: rgba(255, 255, 255, 0.98);
+      box-shadow: 0 8px 24px rgba(19, 43, 34, 0.18);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      overflow: visible;
+    }
+
+    body.m-has-selection #lahan-mobile-cards {
+      padding-bottom: calc(145px + env(safe-area-inset-bottom, 0px));
+    }
+
+    #histori-view .lahan-mobile-card {
+      position: relative;
+      display: grid;
+      gap: 2px;
+      min-height: 0;
+      padding: 6px 8px;
+      border-radius: var(--radius-sm);
+    }
+
+    #histori-view .lahan-mobile-card-head {
+      display: grid;
+      grid-template-columns: 22px minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 6px;
+      min-width: 0;
+    }
+
+    #histori-view .lahan-mobile-card-select {
+      display: grid;
+      width: 22px;
+      height: 22px;
+      flex: 0 0 22px;
+      place-items: center;
+      margin: 0;
+    }
+
+    #histori-view .lahan-mobile-card-select input {
+      width: 18px;
+      height: 18px;
+    }
+
+    #histori-view .lahan-mobile-place-title {
+      min-width: 0;
+      overflow: hidden;
+      font-size: 0.78rem;
+      line-height: 1.15;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    #histori-view .lahan-mobile-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      min-width: 0;
+      white-space: nowrap;
+    }
+
+    #histori-view .lahan-mobile-status .badge {
+      padding: 2px 6px;
+      font-size: 0.62rem;
+      line-height: 1.2;
+    }
+
+    #histori-view .lahan-mobile-card-person {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+      margin: 0 26px 0 28px;
+      line-height: 1.15;
+    }
+
+    #histori-view .lahan-mobile-farmer-name {
+      min-width: 0;
+      overflow: hidden;
+      font-size: 0.7rem;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    #histori-view .lahan-mobile-compact-metrics {
+      display: inline-flex;
+      align-items: baseline;
+      gap: 4px;
+      color: var(--text-secondary);
+      font-size: 0.63rem;
+      white-space: nowrap;
+    }
+
+    #histori-view .lahan-mobile-compact-metrics strong {
+      color: var(--text-primary);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.66rem;
+    }
+
+    #histori-view .lahan-mobile-compact-metrics .registered-area {
+      color: var(--accent-blue-hover);
+    }
+
+    #histori-view .lahan-mobile-card-details {
+      grid-column: 1 / -1;
+      height: 0;
+      margin: 0;
+      border: 0;
+      overflow: visible;
+    }
+
+    #histori-view .lahan-mobile-card-details summary {
+      position: absolute;
+      top: 31px;
+      right: 6px;
+      display: grid;
+      width: 24px;
+      height: 24px;
+      min-height: 24px;
+      place-items: center;
+      margin: 0;
+      padding: 0;
+      border: 0;
+      color: var(--text-muted);
+      font-size: 0;
+      list-style: none;
+    }
+
+    #histori-view .lahan-mobile-card-details summary::-webkit-details-marker {
+      display: none;
+    }
+
+    #histori-view .lahan-mobile-card-details summary::after {
+      content: "▾";
+      font-size: 0.82rem;
+    }
+
+    #histori-view .lahan-mobile-card-details[open] {
+      height: auto;
+      margin-top: 4px;
+      padding-top: 4px;
+      border-top: 1px solid var(--border-color);
+    }
+
+    #histori-view .lahan-mobile-card-details[open] summary::after {
+      content: "▴";
+    }
+
+    #histori-view .lahan-mobile-card-details .lahan-mobile-detail-row {
+      padding: 6px 0;
+      font-size: 0.78rem;
     }
 
     #histori-view .header-title-wrap {
@@ -2758,7 +2928,7 @@
                 <strong id="calc-checked-count">0</strong> Bidang
                 <span style="opacity: 0.5;">|</span>
                 <strong id="calc-checked-luas">0 m²</strong>
-                <span style="opacity: 0.85;">(<span id="calc-checked-ha">0,00</span> Ha)</span>
+                <span style="opacity: 0.85;">(<span id="calc-checked-ha">0,00</span>)</span>
               </span>
               <div style="display: flex; align-items: center; gap: 6px;">
                 <button type="button" onclick="copyCheckedLuas()" class="btn btn-emerald btn-sm" id="btn-copy-checked-luas" title="Salin angka total m² yang dicentang ke clipboard">
@@ -5952,8 +6122,8 @@
       : item.isTerdaftar ? 'Terdaftar' : 'Belum terdaftar';
     const statusClass = item.status === 'ganda' ? 'badge-warning' : item.isTerdaftar ? 'badge-aktif' : 'badge-secondary';
     const farmerSummary = item.isTerdaftar
-      ? `<span class="lahan-mobile-farmer-name">${escapeHtml(firstFarmer || 'Petani terdaftar')}${otherRegistrantCount > 0 ? ` <small>+${otherRegistrantCount} lainnya</small>` : ''}</span>`
-      : '<span class="lahan-mobile-farmer-name" style="color: var(--text-muted);">Belum terdaftar</span>';
+      ? `${escapeHtml(firstFarmer || '-')}${otherRegistrantCount > 0 ? ` +${otherRegistrantCount}` : ''}`
+      : '-';
     const farmerDetails = registrations.length
       ? registrations.map(person => {
           const name = person.nama || person.namaPetani || '-';
@@ -5978,27 +6148,25 @@
     return `
       <article class="lahan-mobile-card${isChecked ? ' is-selected' : ''}">
         <div class="lahan-mobile-card-head">
-          <div class="lahan-mobile-place-title">
-            Blok ${escapeHtml(item.blok)} · Bidang ${escapeHtml(item.bidang)}
-            <span class="lahan-mobile-place-group">${escapeHtml(item.kelompok || 'Tanpa Kelompok')}</span>
-          </div>
           <label class="lahan-mobile-card-select">
             <input type="checkbox" value="${escapeHtml(item.id)}" ${isChecked ? 'checked' : ''} onchange="toggleRowCheckbox('${escapeForInlineHandler(item.id)}', ${Number(item.luasPBB) || 0}, this.checked, this)" aria-label="Pilih bidang ${escapeHtml(item.bidang)} di blok ${escapeHtml(item.blok)}">
           </label>
-        </div>
-        <div class="lahan-mobile-card-person">
-          ${farmerSummary}
-          <div>
+          <div class="lahan-mobile-place-title">Blok ${escapeHtml(item.blok)} · Bid ${escapeHtml(item.bidang)}</div>
+          <div class="lahan-mobile-status">
             <span class="badge ${statusClass}">${statusText}</span>
-            ${item.isLuasBerlebih ? '<div style="margin-top: 4px;"><span class="badge badge-danger">Luas berlebih</span></div>' : ''}
+            ${item.isLuasBerlebih ? '<span class="badge badge-danger">Luas lebih</span>' : ''}
           </div>
         </div>
-        <div class="lahan-mobile-card-metrics">
-          <div><span>Luas PBB</span><strong>${Number(item.luasPBB || 0).toLocaleString('id-ID')} m²</strong></div>
-          <div><span>Luas terdaftar</span><strong>${item.isTerdaftar ? `${Number(item.totalLuasDaftar || 0).toLocaleString('id-ID')} m²` : '-'}</strong></div>
+        <div class="lahan-mobile-card-person">
+          <span class="lahan-mobile-farmer-name">${farmerSummary}</span>
+          <span class="lahan-mobile-compact-metrics">
+            <span>PBB <strong>${Number(item.luasPBB || 0).toLocaleString('id-ID')}</strong> m²</span>
+            ${item.isTerdaftar ? `<span class="registered-area">Terdaftar <strong>${Number(item.totalLuasDaftar || 0).toLocaleString('id-ID')}</strong> m²</span>` : ''}
+          </span>
         </div>
         <details class="lahan-mobile-card-details">
-          <summary>Detail lahan dan pendaftar</summary>
+          <summary aria-label="Detail lahan dan pendaftar">Detail lahan dan pendaftar</summary>
+          <div class="lahan-mobile-detail-row"><span class="lahan-mobile-detail-label">Kelompok</span><span class="lahan-mobile-detail-value">${escapeHtml(item.kelompok || 'Tanpa Kelompok')}</span></div>
           <div class="lahan-mobile-detail-row"><span class="lahan-mobile-detail-label">NOP</span><span class="lahan-mobile-detail-value">${escapeHtml(item.nop || '-')}</span></div>
           <div class="lahan-mobile-detail-row"><span class="lahan-mobile-detail-label">Nama WP</span><span class="lahan-mobile-detail-value">${escapeHtml(item.namaWP || '-')}</span><span class="lahan-mobile-detail-value">${escapeHtml(item.alamatWP || '-')}</span></div>
           <div class="lahan-mobile-detail-row"><span class="lahan-mobile-detail-label">Nomor HP</span><span class="lahan-mobile-detail-value">${escapeHtml(getNomorHpValue(item) || '-')}</span></div>
@@ -6292,6 +6460,7 @@
       const ha = (totalCheckedLuas / 10000).toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
       haEl.textContent = ha + ' Ha';
     }
+    document.body.classList.toggle('m-has-selection', LahanState.selectedIds.size > 0);
   }
 
   function copyCheckedLuas() {
