@@ -1868,6 +1868,15 @@
       font-size: 0.96rem;
     }
 
+    .m-only[hidden],
+    .m-sheet-overlay[hidden] {
+      display: none !important;
+    }
+
+    .m-only:not([hidden]) {
+      display: flex;
+    }
+
     #histori-view .data-header-sticky {
       position: static;
       top: auto;
@@ -1877,14 +1886,155 @@
       margin: -8px -8px 6px;
     }
 
-    #histori-view .header-main-row { order: 0; }
-    #histori-view .header-inline-row { order: 1; }
-    #histori-view .header-secondary-row { order: 2; }
-    #histori-view .metrics-strip { order: 3; }
+    #histori-view .header-inline-row {
+      position: sticky;
+      top: 88px;
+      z-index: 1200;
+      order: 0;
+      display: grid !important;
+      grid-template-columns: minmax(0, 1fr) auto;
+      grid-template-areas: "search actions" "summary summary";
+      align-items: center;
+      gap: 4px 8px;
+      margin: 0 !important;
+      padding: 2px !important;
+      border: 1px solid var(--border-color) !important;
+      border-radius: var(--radius-sm) !important;
+      background: rgba(255, 255, 255, 0.98) !important;
+      box-shadow: 0 3px 10px rgba(19, 43, 34, 0.08);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+    }
 
-    #histori-view .header-main-row {
-      display: grid;
+    #histori-view .header-secondary-row { order: 1; }
+    #histori-view .metrics-strip { order: 2; }
+
+    #histori-view .header-inline-row .m-search-field {
+      grid-area: search;
+      min-width: 0 !important;
+    }
+
+    #histori-view .header-inline-row .form-control {
+      height: 44px !important;
+      min-height: 44px;
+      padding: 8px 10px !important;
+      font-size: 16px !important;
+    }
+
+    #histori-view .m-relocated-field-slot {
+      display: none !important;
+    }
+
+    #m-search-actions {
+      grid-area: actions;
+      align-items: center;
       gap: 6px;
+    }
+
+    #histori-view .header-inline-row #farmer-filter-summary {
+      grid-area: summary;
+      padding: 3px 4px 1px;
+      border: 0;
+    }
+
+    .m-icon-button {
+      display: inline-grid;
+      position: relative;
+      width: 44px;
+      height: 44px;
+      min-height: 44px;
+      flex: 0 0 44px;
+      place-items: center;
+      padding: 0;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-sm);
+      background: var(--bg-surface);
+      color: var(--text-primary);
+      font-size: 1.05rem;
+    }
+
+    #m-filter-badge {
+      position: absolute;
+      top: -3px;
+      right: -3px;
+      display: grid;
+      min-width: 17px;
+      height: 17px;
+      place-items: center;
+      padding: 0 4px;
+      border-radius: 999px;
+      background: var(--accent-rose);
+      color: #fff;
+      font-size: 0.62rem;
+      font-weight: 700;
+    }
+
+    #m-filter-sheet,
+    #m-menu {
+      position: fixed;
+      inset: 0;
+      z-index: 1400;
+      align-items: flex-end;
+      justify-content: center;
+      background: rgba(12, 30, 23, 0.42);
+    }
+
+    .m-sheet-panel {
+      width: min(100%, 520px);
+      max-height: min(78dvh, 680px);
+      overflow-y: auto;
+      padding: 16px 16px calc(16px + env(safe-area-inset-bottom, 0px));
+      border: 1px solid var(--border-color);
+      border-bottom: 0;
+      border-radius: 16px 16px 0 0;
+      background: var(--bg-surface);
+      box-shadow: 0 -12px 32px rgba(19, 43, 34, 0.18);
+      overscroll-behavior: contain;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .m-sheet-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 12px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .m-sheet-header h2 {
+      margin: 0;
+      color: var(--text-primary);
+      font-size: 1rem;
+    }
+
+    #m-filter-fields {
+      display: grid;
+      gap: 8px;
+    }
+
+    #m-filter-fields .form-group {
+      margin: 0;
+    }
+
+    #m-filter-fields .form-control {
+      min-height: 44px;
+      font-size: 16px;
+    }
+
+    #m-filter-actions,
+    #m-menu-actions {
+      display: grid;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    #m-filter-actions .btn,
+    #m-menu-actions .btn {
+      width: 100%;
+      min-height: 44px;
+      justify-content: flex-start;
     }
 
     #histori-view .header-title-wrap {
@@ -1906,26 +2056,14 @@
       font-size: 0.72rem;
     }
 
-    #histori-view .header-actions {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      max-width: 100%;
-      overflow-x: auto;
-      overflow-y: hidden;
-      padding-bottom: 2px;
-      scrollbar-width: thin;
-      -webkit-overflow-scrolling: touch;
+    #histori-view .data-header-sticky .header-main-row {
+      display: none;
     }
 
-    #histori-view .header-actions > * {
-      flex: 0 0 auto;
-    }
-
-    #histori-view .header-actions .btn {
-      min-height: 40px;
-      padding: 0 10px;
-      font-size: 0.75rem;
+    #histori-view .data-header-sticky .header-inline-row {
+      position: sticky;
+      top: 88px;
+      z-index: 1200;
     }
 
     #histori-view .card-title {
@@ -2379,7 +2517,7 @@
               <button id="btn-sync-dbwp-histori" onclick="syncDbwpBandingFromHistori()" class="btn btn-emerald btn-sm" title="Sinkronkan status terdaftar/belum ke sheet dbwp-banding">
                 ⚡ Sinkron DBWP
               </button>
-              <button onclick="loadUnifiedLahanData(true)" class="btn btn-primary btn-sm" title="Muat ulang seluruh data terbaru dari server">
+              <button id="btn-reload-histori" onclick="loadUnifiedLahanData(true)" class="btn btn-primary btn-sm" title="Muat ulang seluruh data terbaru dari server">
                 🔄 Muat Ulang
               </button>
               <div style="position: relative; display: inline-block;">
@@ -2471,7 +2609,7 @@
                 <span>⚠️ Lebih</span>
                 <span class="chip-count" id="chip-count-berlebih">0</span>
               </button>
-              <button type="button" onclick="resetAllFilters()" class="btn btn-secondary btn-sm" title="Reset seluruh filter kolom dan pencarian">
+              <button type="button" id="btn-reset-filters-histori" onclick="resetAllFilters()" class="btn btn-secondary btn-sm" title="Reset seluruh filter kolom dan pencarian">
                 🔄 Reset
               </button>
             </div>
@@ -2496,18 +2634,22 @@
           </div>
 
           <div class="header-inline-row form-row" style="background: rgba(15, 184, 109, 0.04); padding: 4px 6px; border-radius: 4px; border: 1px solid rgba(20, 184, 109, 0.15);">
-            <div class="form-group" style="margin: 0; flex: 2; min-width: 160px;">
+            <div class="form-group m-search-field" style="margin: 0; flex: 2; min-width: 160px;">
               <input type="text" id="search-keyword" class="form-control" placeholder="Cari petani / NIK / NOP / bidang..." oninput="onFilterInputChange()" style="height: 26px; font-size: 0.75rem; padding: 2px 6px;">
             </div>
-            <div class="form-group" style="margin: 0; flex: 0.8; min-width: 90px;">
+            <div class="form-group m-relocated-field-slot" style="margin: 0; flex: 0.8; min-width: 90px;">
               <input type="number" id="search-blok" class="form-control" placeholder="Blok" oninput="onFilterInputChange()" style="height: 26px; font-size: 0.75rem; padding: 2px 6px;">
             </div>
-            <div class="form-group" style="margin: 0; flex: 1.2; min-width: 110px;">
+            <div class="form-group m-relocated-field-slot" style="margin: 0; flex: 1.2; min-width: 110px;">
               <select id="search-kelompok" class="form-control" onchange="onFilterInputChange()" style="height: 26px; font-size: 0.75rem; padding: 0 4px;">
                 <option value="">Semua Kelompok</option>
               </select>
             </div>
             <div id="farmer-filter-summary" class="farmer-filter-summary" aria-live="polite" hidden></div>
+            <div id="m-search-actions" class="m-only" hidden>
+              <button type="button" id="m-btn-filter" class="m-icon-button" onclick="openMobileFilterSheet()" aria-label="Buka filter" title="Filter">☷<span id="m-filter-badge" hidden></span></button>
+              <button type="button" id="m-btn-menu" class="m-icon-button" onclick="toggleMobileMenu()" aria-label="Buka menu" title="Menu">⋮</button>
+            </div>
           </div>
         </div>
 
@@ -2595,6 +2737,31 @@
           </label>
           <div id="lahan-mobile-cards" class="lahan-mobile-cards"></div>
         </div>
+      </div>
+
+      <div id="m-filter-sheet" class="m-only m-sheet-overlay" hidden onclick="if(event.target===this)closeMobileFilterSheet()">
+        <section class="m-sheet-panel" role="dialog" aria-modal="true" aria-labelledby="m-filter-title" onclick="event.stopPropagation()">
+          <header class="m-sheet-header">
+            <h2 id="m-filter-title">Filter lahan</h2>
+            <button type="button" class="m-icon-button" onclick="closeMobileFilterSheet()" aria-label="Tutup filter">✕</button>
+          </header>
+          <div id="m-filter-fields"></div>
+          <div id="m-filter-status-options"></div>
+          <div id="m-filter-actions">
+            <button type="button" class="btn btn-primary" onclick="closeMobileFilterSheet()">Terapkan</button>
+          </div>
+        </section>
+      </div>
+
+      <div id="m-menu" class="m-only m-sheet-overlay" hidden onclick="if(event.target===this)closeMobileMenu()">
+        <section class="m-sheet-panel" role="dialog" aria-modal="true" aria-labelledby="m-menu-title" onclick="event.stopPropagation()">
+          <header class="m-sheet-header">
+            <h2 id="m-menu-title">Menu data</h2>
+            <button type="button" class="m-icon-button" onclick="closeMobileMenu()" aria-label="Tutup menu">✕</button>
+          </header>
+          <div id="m-menu-actions"></div>
+          <div id="m-menu-extra"></div>
+        </section>
       </div>
 
       <!-- Excel-Style Filter Floating Popover -->
@@ -4070,6 +4237,8 @@
     restoreSmartCacheFromStorage();
     startSmartCacheAutoRefresh();
     loadSmartCache(true);
+    applyHistoriLayout();
+    historiLayoutMql.addEventListener('change', applyHistoriLayout);
   }
 
   /**
@@ -4142,6 +4311,76 @@
   function applyMobileDataTabRules() {
     const exportDropdown = document.querySelector('#histori-view .export-dropdown');
     if (exportDropdown) exportDropdown.style.display = 'none';
+  }
+
+  const historiLayoutMql = window.matchMedia('(max-width: 768px)');
+
+  function applyHistoriLayout() {
+    const isMobile = historiLayoutMql.matches;
+    const movableElements = [
+      ['search-blok', 'm-filter-fields'],
+      ['search-kelompok', 'm-filter-fields'],
+      ['btn-sync-koordinat-histori', 'm-menu-actions'],
+      ['btn-sync-dbwp-histori', 'm-menu-actions'],
+      ['btn-reload-histori', 'm-menu-actions'],
+      ['btn-reset-filters-histori', 'm-filter-actions']
+    ];
+
+    movableElements.forEach(([id, targetId]) => {
+      const element = document.getElementById(id);
+      const target = document.getElementById(targetId);
+      if (!element || !target) return;
+
+      let placeholder = document.querySelector(`.m-ph[data-for="${id}"]`);
+      if (!placeholder) {
+        placeholder = document.createElement('span');
+        placeholder.className = 'm-ph';
+        placeholder.dataset.for = id;
+        placeholder.hidden = true;
+        element.before(placeholder);
+      }
+
+      if (id === 'search-blok' || id === 'search-kelompok') {
+        element.parentElement?.classList.add('m-relocated-field-slot');
+      }
+
+      if (isMobile) {
+        if (element.parentElement !== target) target.appendChild(element);
+      } else if (placeholder.parentElement && element.parentElement !== placeholder.parentElement) {
+        placeholder.after(element);
+      } else if (placeholder.nextElementSibling !== element) {
+        placeholder.after(element);
+      }
+    });
+
+    const searchActions = document.getElementById('m-search-actions');
+    if (searchActions) searchActions.hidden = !isMobile;
+    if (!isMobile) {
+      closeMobileFilterSheet();
+      closeMobileMenu();
+    }
+  }
+
+  function openMobileFilterSheet() {
+    closeMobileMenu();
+    const sheet = document.getElementById('m-filter-sheet');
+    if (sheet) sheet.hidden = false;
+  }
+
+  function closeMobileFilterSheet() {
+    const sheet = document.getElementById('m-filter-sheet');
+    if (sheet) sheet.hidden = true;
+  }
+
+  function toggleMobileMenu() {
+    closeMobileFilterSheet();
+    const menu = document.getElementById('m-menu');
+    if (menu) menu.hidden = !menu.hidden;
+  }
+
+  function closeMobileMenu() {
+    const menu = document.getElementById('m-menu');
+    if (menu) menu.hidden = true;
   }
 
   function switchView(viewId) {
