@@ -3280,7 +3280,7 @@
             <div class="metrics-calc-row">
               <span class="calc-summary-badge">
                 <span>☑️</span>
-                <strong id="calc-checked-count">0</strong> Bidang
+                <strong id="calc-checked-count">0</strong> <span id="calc-checked-unit">Bidang</span>
                 <span style="opacity: 0.5;">|</span>
                 <strong id="calc-checked-luas">0 m²</strong>
                 <span style="opacity: 0.85;">(<span id="calc-checked-ha">0,00</span>)</span>
@@ -3352,6 +3352,12 @@
             <div class="form-group m-relocated-field-slot" style="margin: 0; flex: 1.2; min-width: 110px;">
               <select id="search-kelompok" class="form-control" onchange="onFilterInputChange()" style="height: 26px; font-size: 0.75rem; padding: 0 4px;">
                 <option value="">Semua Kelompok</option>
+              </select>
+            </div>
+            <div class="form-group" style="margin: 0; flex: 1; min-width: 135px;">
+              <select id="listing-mode" class="form-control" aria-label="Mode listing" onchange="changeListingMode(this.value)" style="height: 26px; font-size: 0.75rem; padding: 0 4px;">
+                <option value="lahan">Listing Berdasar Lahan</option>
+                <option value="petani">Listing Berdasar Petani</option>
               </select>
             </div>
             <div id="farmer-filter-summary" class="farmer-filter-summary" aria-live="polite" hidden></div>
@@ -5969,6 +5975,7 @@
   const LahanState = {
     rawData: [],
     filteredData: [],
+    listingMode: 'lahan',
     statusFilter: 'all', // 'all' | 'terdaftar' | 'belum' | 'ganda' | 'berlebih'
     columnFilters: {},   // { [colKey]: Set<string> }
     sortConfig: { colKey: null, direction: 'asc' },
@@ -6253,6 +6260,18 @@
   /* Ekstraksi nilai per kolom untuk filter/sort */
   function getRowColValue(item, colKey) {
     switch (colKey) {
+      case 'farmerKelompok':
+        return item.kelompok || 'Tanpa Kelompok';
+      case 'farmerNik':
+        return item.nik || '-';
+      case 'farmerNama':
+        return item.petani || '-';
+      case 'farmerNomorHp':
+        return getNomorHpValue(item) || '-';
+      case 'farmerBidang':
+        return (item.bidangList || []).map(land => `Blok ${land.blok} Bid ${land.bidang} (${land.nop})`).join(', ');
+      case 'farmerLuas':
+        return Number(item.totalLuasDaftar || 0);
       case 'blokKelompok':
         return `Blok ${item.blok} (${item.kelompok})`;
       case 'bidangNop':
@@ -6276,6 +6295,127 @@
       default:
         return String(item[colKey] || '');
     }
+  }
+
+  function changeListingMode(mode) {
+    if (mode !== 'lahan' && mode !== 'petani') return;
+    if (LahanState.listingMode === mode) return;
+
+    LahanState.listingMode = mode;
+    LahanState.currentPage = 1;
+    LahanState.selectedIds.clear();
+    LahanState.columnFilters = {};
+    LahanState.sortConfig = { colKey: null, direction: 'asc' };
+    closeExcelFilterPopup();
+    applyLahanFiltersAndRender();
+  }
+
+  function buildFarmerListingRows(lands, keyword) {
+    const groups = new Map();
+    const search = String(keyword || '').toLowerCase().trim();
+
+    (lands || []).forEach(land => {
+      const registrations = Array.isArray(land.petaniList) ? land.petaniList : [];
+      const landSearchText = [land.blok, land.bidang, land.nop, land.namaWP, land.alamatWP]
+        .join(' ').toLowerCase();
+      const matchingPersons = registrations.filter(person => {
+        const nik = String(person.nik || '').trim();
+        if (!nik) return false;
+        if (!search) return true;
+        const personText = [nik, person.nama || person.namaPetani, person.nomorHp].join(' ').toLowerCase();
+        return personText.includes(search) || (!registrations.some(candidate => {
+          const candidateNik = String(candidate.nik || '').trim();
+          const candidateText = [candidateNik, candidate.nama || candidate.namaPetani, candidate.nomorHp].join(' ').toLowerCase();
+          return candidateNik && candidateText.includes(search);
+        }) && landSearchText.includes(search));
+      });
+
+      matchingPersons.forEach(person => {
+        const nik = String(person.nik || '').trim();
+        const kelompok = String(land.kelompok || '').trim() || 'Tanpa Kelompok';
+        const key = `${kelompok.toLowerCase()}|${nik.replace(/\s+/g, '')}`;
+        if (!groups.has(key)) {
+          groups.set(key, {
+            id: 'farmer:' + encodeURIComponent(key),
+            isFarmerRow: true,
+            kelompok,
+            nik,
+            petani: '',
+            nomorHp: '',
+            totalLuasDaftar: 0,
+            countPendaftar: 0,
+            isTerdaftar: true,
+            status: 'terdaftar',
+            isLuasBerlebih: false,
+            petaniList: [],
+            bidangList: [],
+            landsById: new Map(),
+            names: new Set(),
+            phones: new Set()
+          });
+        }
+
+        const farmer = groups.get(key);
+        const name = String(person.nama || person.namaPetani || '').trim();
+        const phone = String(person.nomorHp || '').trim();
+        if (name) farmer.names.add(name);
+        if (phone) farmer.phones.add(phone);
+        farmer.totalLuasDaftar += Number(person.luas !== undefined ? person.luas : person.luasDidaftarkan) || 0;
+        farmer.countPendaftar++;
+        farmer.petaniList.push({ ...person, nik, nama: name, nomorHp: phone, landId: land.id });
+        farmer.landsById.set(land.id, land);
+      });
+    });
+
+    return Array.from(groups.values()).map(farmer => {
+      farmer.petani = Array.from(farmer.names).join(', ') || '-';
+      farmer.nomorHp = Array.from(farmer.phones).join(', ');
+      farmer.bidangList = Array.from(farmer.landsById.values()).map(land => ({
+        id: land.id,
+        blok: land.blok,
+        bidang: land.bidang,
+        nop: land.nop,
+        koordinat: String(land.koordinat || '').trim(),
+        luasPBB: Number(land.luasPBB || 0),
+        totalLuasDaftar: farmer.petaniList
+          .filter(person => person.landId === land.id)
+          .reduce((sum, person) => sum + (Number(person.luas) || 0), 0)
+      }));
+      farmer.countBidang = farmer.bidangList.length;
+      farmer.luasPBB = 0;
+      farmer.landIds = farmer.bidangList.map(land => land.id);
+      farmer.bidang = farmer.bidangList.map(land => land.bidang).join(', ');
+      farmer.nop = farmer.bidangList.map(land => land.nop).join(', ');
+      return farmer;
+    });
+  }
+
+  function getFarmerCoordinateLocations(farmer) {
+    return (farmer.bidangList || []).filter(land => String(land.koordinat || '').trim());
+  }
+
+  function renderFarmerMapIcons(farmer) {
+    const locations = getFarmerCoordinateLocations(farmer);
+    if (locations.length === 0) return '<span style="color:var(--text-muted);">-</span>';
+
+    const icons = locations.slice(0, 3).map(land => {
+      const coordinate = String(land.koordinat).trim();
+      const place = `Blok ${land.blok} Bidang ${land.bidang}${land.nop ? ` · NOP ${land.nop}` : ''}`;
+      const mapUrl = 'https://www.google.com/maps?q=' + encodeURIComponent(coordinate);
+      return `<a href="${mapUrl}" target="_blank" rel="noopener" class="coord-map-link" title="${escapeHtml(place)}" aria-label="Buka peta ${escapeHtml(place)}">📍</a>`;
+    }).join(' ');
+    const remaining = locations.length - 3;
+    const more = remaining > 0
+      ? `<span class="badge badge-secondary" title="${remaining} titik peta lainnya">+${remaining}</span>`
+      : '';
+
+    return `<div style="display:flex;align-items:center;gap:5px;white-space:nowrap;">${icons}${more}</div>`;
+  }
+
+  function getFarmerLatLongValue(farmer) {
+    return getFarmerCoordinateLocations(farmer)
+      .map(land => String(land.koordinat).trim())
+      .join(' | ');
   }
 
   function applyLahanFiltersAndRender() {
@@ -6327,8 +6467,8 @@
     if (cGandaEl) cGandaEl.textContent = countGanda;
     if (cBerlebihEl) cBerlebihEl.textContent = countBerlebih;
 
-    // Filter baris yang aktif
-    let filtered = raw.filter(r => {
+    // Apply parcel filters before creating farmer aggregates.
+    const filteredLands = raw.filter(r => {
       // 1. Blok & Kelompok
       if (blokFilter && String(r.blokNum) !== blokFilter && r.blok !== blokPad) return false;
       if (kelompokFilter && String(r.kelompok || '').toLowerCase() !== kelompokFilter) return false;
@@ -6339,8 +6479,8 @@
       if (LahanState.statusFilter === 'ganda' && !r.isMultiPendaftar) return false;
       if (LahanState.statusFilter === 'berlebih' && !r.isLuasBerlebih) return false;
 
-      // 3. Keyword Search
-      if (keyword) {
+      // Search is applied per farmer after parcel matching in farmer mode.
+      if (keyword && LahanState.listingMode === 'lahan') {
         const nomorHpText = getNomorHpValue(r).toLowerCase();
         const matchKey = String(r.nik || '').toLowerCase().includes(keyword) ||
                          String(r.petani || '').toLowerCase().includes(keyword) ||
@@ -6355,16 +6495,28 @@
         if (!matchKey) return false;
       }
 
-      // 4. Excel Column Filters
-      for (const [colKey, valSet] of Object.entries(LahanState.columnFilters)) {
-        if (valSet && valSet.size > 0) {
+      // Parcel column filters remain parcel-based in land mode.
+      if (LahanState.listingMode === 'lahan') {
+        for (const [colKey, valSet] of Object.entries(LahanState.columnFilters)) {
+          if (!valSet || valSet.size === 0) continue;
           const val = getRowColValue(r, colKey);
-          if (!valSet.has(val)) return false;
+          if (!valSet.has(val) && !valSet.has(String(val))) return false;
         }
       }
 
       return true;
     });
+
+    let filtered = LahanState.listingMode === 'petani'
+      ? buildFarmerListingRows(filteredLands, keyword)
+      : filteredLands;
+
+    if (LahanState.listingMode === 'petani') {
+      filtered = filtered.filter(farmer => Object.entries(LahanState.columnFilters).every(([colKey, valSet]) => {
+        const value = getRowColValue(farmer, colKey);
+        return !valSet || valSet.size === 0 || valSet.has(value) || valSet.has(String(value));
+      }));
+    }
 
     // Sorting
     if (LahanState.sortConfig.colKey) {
@@ -6380,9 +6532,22 @@
         const cmp = String(valA).localeCompare(String(valB), undefined, { numeric: true, sensitivity: 'base' });
         return direction === 'asc' ? cmp : -cmp;
       });
+    } else if (LahanState.listingMode === 'petani') {
+      filtered.sort((a, b) =>
+        String(a.kelompok).localeCompare(String(b.kelompok), 'id', { sensitivity: 'base' }) ||
+        String(a.petani).localeCompare(String(b.petani), 'id', { sensitivity: 'base' }) ||
+        String(a.nik).localeCompare(String(b.nik), undefined, { numeric: true })
+      );
     }
 
     LahanState.filteredData = filtered;
+
+    const metricLandIds = LahanState.listingMode === 'petani'
+      ? new Set(filtered.flatMap(farmer => farmer.landIds))
+      : null;
+    const metricLands = LahanState.listingMode === 'petani'
+      ? raw.filter(land => metricLandIds.has(land.id))
+      : filteredLands;
 
     // Update KPI Strip Keterangan Resume Ringkas
     let sumTotalPBB = 0;
@@ -6390,11 +6555,14 @@
     let sumLuasBelum = 0;
     let sumGanda = 0;
 
-    for (let i = 0; i < filtered.length; i++) {
-      const f = filtered[i];
+    for (let i = 0; i < metricLands.length; i++) {
+      const f = metricLands[i];
       sumTotalPBB += (f.luasPBB || 0);
-      sumLuasTerdaftar += (f.totalLuasDaftar || 0);
+      if (LahanState.listingMode === 'lahan') sumLuasTerdaftar += (f.totalLuasDaftar || 0);
       if (f.isMultiPendaftar) sumGanda++;
+    }
+    if (LahanState.listingMode === 'petani') {
+      sumLuasTerdaftar = filtered.reduce((sum, farmer) => sum + (Number(farmer.totalLuasDaftar) || 0), 0);
     }
     sumLuasBelum = Math.max(0, Math.round(sumTotalPBB - sumLuasTerdaftar));
 
@@ -6421,11 +6589,13 @@
     }
     if (kpiGanda) kpiGanda.textContent = sumGanda;
     if (countInfo) {
-      countInfo.textContent = `Menampilkan ${filtered.length} dari ${raw.length} bidang`;
+      const unit = LahanState.listingMode === 'petani' ? 'petani' : 'bidang';
+      const totalRows = LahanState.listingMode === 'petani' ? buildFarmerListingRows(raw, '').length : raw.length;
+      countInfo.textContent = `Menampilkan ${filtered.length} dari ${totalRows} ${unit}`;
     }
 
     const farmerSummary = document.getElementById('farmer-filter-summary');
-    const farmerMatches = keyword ? filtered.filter(matchesFarmer) : [];
+    const farmerMatches = keyword && LahanState.listingMode === 'lahan' ? filtered.filter(matchesFarmer) : [];
     if (farmerSummary) {
       const uniqueLands = new Map(farmerMatches.map(item => [String(item.id || item.nop), item]));
       if (uniqueLands.size > 0 && window.matchMedia('(max-width: 768px)').matches) {
@@ -6440,7 +6610,9 @@
     }
 
     // Update active filter icons on TH
-    const colKeys = ['blokKelompok', 'bidangNop', 'namaWP', 'petani', 'nomorHp', 'luasPBB', 'totalLuasDaftar', 'koordinat', 'status'];
+    const colKeys = LahanState.listingMode === 'petani'
+      ? ['farmerKelompok', 'farmerNik', 'farmerNama', 'farmerNomorHp', 'farmerBidang', 'farmerLuas']
+      : ['blokKelompok', 'bidangNop', 'namaWP', 'petani', 'nomorHp', 'luasPBB', 'totalLuasDaftar', 'koordinat', 'status'];
     colKeys.forEach(ck => {
       const icon = document.getElementById(`icon-filter-${ck}`);
       if (icon) {
@@ -6534,9 +6706,90 @@
     `;
   }
 
+  function renderFarmerMobileCard(item) {
+    const isChecked = LahanState.selectedIds.has(item.id);
+    const landDetails = item.bidangList.map(land =>
+      `<div class="lahan-mobile-detail-row"><strong>Blok ${escapeHtml(land.blok)} · Bid ${escapeHtml(land.bidang)}</strong><span class="lahan-mobile-detail-value">${escapeHtml(land.nop || '-')} · ${Number(land.totalLuasDaftar || 0).toLocaleString('id-ID')} m²</span></div>`
+    ).join('');
+    const transactions = Array.from(new Map(item.petaniList
+      .filter(person => person.id)
+      .map(person => [person.id, person])).values());
+    const actions = transactions.map(person => {
+      const safeId = escapeForInlineHandler(person.id);
+      return `<button type="button" class="btn btn-secondary btn-sm" onclick="openEditModal('${safeId}')">Edit</button><button type="button" class="btn btn-danger btn-sm" onclick="handleSoftDelete('${safeId}')">Batalkan</button>`;
+    }).join('');
+
+    return `
+      <article class="lahan-mobile-card${isChecked ? ' is-selected' : ''}">
+        <div class="lahan-mobile-card-head">
+          <label class="lahan-mobile-card-select">
+            <input type="checkbox" value="${escapeHtml(item.id)}" ${isChecked ? 'checked' : ''} onchange="toggleRowCheckbox('${escapeForInlineHandler(item.id)}', 0, this.checked, this)" aria-label="Pilih ${escapeHtml(item.petani)} dengan NIK ${escapeHtml(item.nik)}">
+          </label>
+          <div class="lahan-mobile-place-title">${escapeHtml(item.kelompok)}</div>
+          <div class="lahan-mobile-status"><span class="badge badge-aktif">${item.countBidang} bidang</span></div>
+        </div>
+        <div class="lahan-mobile-card-person">
+          <span class="lahan-mobile-farmer-name">${escapeHtml(item.petani)}</span>
+          <span class="lahan-mobile-compact-metrics"><span>NIK <strong>${escapeHtml(item.nik)}</strong></span><span>${Number(item.totalLuasDaftar || 0).toLocaleString('id-ID')} m² terdaftar</span></span>
+        </div>
+        <details class="lahan-mobile-card-details">
+          <summary>Detail bidang dan transaksi</summary>
+          <div class="lahan-mobile-detail-row"><span class="lahan-mobile-detail-label">Nomor HP</span><span class="lahan-mobile-detail-value">${escapeHtml(getNomorHpValue(item) || '-')}</span></div>
+          <div class="lahan-mobile-detail-row"><span class="lahan-mobile-detail-label">Titik peta</span>${renderFarmerMapIcons(item)}</div>
+          <div class="lahan-mobile-detail-row"><span class="lahan-mobile-detail-label">Bidang (${item.countBidang})</span>${landDetails}</div>
+          ${actions ? `<div class="lahan-mobile-actions">${actions}</div>` : ''}
+        </details>
+      </article>
+    `;
+  }
+
+  function renderLahanTableHeader() {
+    const thead = document.querySelector('#unified-lahan-table thead');
+    if (!thead) return;
+
+    const filterHeader = (key, label, alignRight) => `
+      <th class="sortable-th"${alignRight ? ' style="text-align: right;"' : ''} onclick="openExcelFilterPopup('${key}', event)">
+        <div class="th-content-wrapper"${alignRight ? ' style="justify-content: flex-end;"' : ''}>
+          <span>${label}</span><span class="th-filter-trigger${LahanState.columnFilters[key] ? ' active-filter' : ''}" id="icon-filter-${key}">▼${LahanState.columnFilters[key] ? '*' : ''}</span>
+        </div>
+      </th>`;
+
+    if (LahanState.listingMode === 'petani') {
+      thead.innerHTML = `<tr>
+        <th style="width:42px;text-align:center;"><input type="checkbox" id="check-all-master" onchange="toggleSelectAllRows(this.checked)" title="Pilih semua baris di halaman"></th>
+        <th style="width:50px;">No</th>
+        ${filterHeader('farmerKelompok', 'Kelompok Tani')}
+        ${filterHeader('farmerNik', 'NIK')}
+        ${filterHeader('farmerNama', 'Nama Petani')}
+        ${filterHeader('farmerNomorHp', 'Nomor HP')}
+        ${filterHeader('farmerBidang', 'Bidang / NOP')}
+        <th style="width:100px;text-align:center;">Koordinat</th>
+        ${filterHeader('farmerLuas', 'Total Luas Daftar', true)}
+        <th style="width:90px;text-align:center;">Aksi</th>
+      </tr>`;
+      return;
+    }
+
+    thead.innerHTML = `<tr>
+      <th style="width:42px;text-align:center;"><input type="checkbox" id="check-all-master" onchange="toggleSelectAllRows(this.checked)" title="Pilih semua baris terfilter"></th>
+      <th style="width:50px;">No</th>
+      ${filterHeader('blokKelompok', 'Blok / Kelompok')}
+      ${filterHeader('bidangNop', 'Bidang / NOP')}
+      ${filterHeader('namaWP', 'Data PBB (Nama WP)')}
+      ${filterHeader('petani', 'Petani Pendaftar (NIK)')}
+      ${filterHeader('nomorHp', 'Nomor HP')}
+      ${filterHeader('luasPBB', 'Luas PBB', true)}
+      ${filterHeader('totalLuasDaftar', 'Luas Daftar', true)}
+      ${filterHeader('koordinat', 'Koordinat')}
+      ${filterHeader('status', 'Status Bidang')}
+      <th style="width:90px;text-align:center;">Aksi</th>
+    </tr>`;
+  }
+
   function renderLahanTable(data) {
     const tbody = document.getElementById('histori-table-tbody');
     if (!tbody) return;
+    renderLahanTableHeader();
     const mobileCards = document.getElementById('lahan-mobile-cards');
     const isMobile = window.matchMedia('(max-width: 768px)').matches;
 
@@ -6548,15 +6801,24 @@
     }
     const startIndex = (LahanState.currentPage - 1) * pageSize;
     const pageRows = visibleData.slice(startIndex, startIndex + pageSize);
+    const mobileSelectAllLabel = document.querySelector('.lahan-mobile-select-all span');
+    if (mobileSelectAllLabel) {
+      mobileSelectAllLabel.textContent = LahanState.listingMode === 'petani'
+        ? 'Pilih semua petani di halaman'
+        : 'Pilih semua bidang di halaman';
+    }
 
     if (!pageRows || pageRows.length === 0) {
-      if (mobileCards) mobileCards.innerHTML = '<p class="lahan-mobile-empty">Tidak ada bidang lahan yang cocok dengan filter aktif.</p>';
+      const emptyMessage = LahanState.listingMode === 'petani'
+        ? 'Tidak ada petani dengan NIK yang cocok dengan filter aktif.'
+        : 'Tidak ada bidang lahan yang cocok dengan filter aktif.';
+      if (mobileCards) mobileCards.innerHTML = `<p class="lahan-mobile-empty">${emptyMessage}</p>`;
       const mobileSelectAll = document.getElementById('check-all-master-mobile');
       if (mobileSelectAll) mobileSelectAll.checked = false;
       tbody.innerHTML = `
         <tr>
-          <td colspan="12" style="text-align: center; color: var(--text-muted); padding: 36px;">
-            Tidak ada bidang lahan yang cocok dengan filter aktif.
+          <td colspan="${LahanState.listingMode === 'petani' ? 10 : 12}" style="text-align: center; color: var(--text-muted); padding: 36px;">
+            ${emptyMessage}
           </td>
         </tr>
       `;
@@ -6580,7 +6842,7 @@
 
     if (isMobile && mobileCards) {
       tbody.innerHTML = '';
-      mobileCards.innerHTML = pageRows.map(renderLahanMobileCard).join('');
+      mobileCards.innerHTML = pageRows.map(LahanState.listingMode === 'petani' ? renderFarmerMobileCard : renderLahanMobileCard).join('');
       updateTablePagingUI();
       return;
     }
@@ -6590,6 +6852,36 @@
     tbody.innerHTML = pageRows.map((item, idx) => {
       const isChecked = LahanState.selectedIds.has(item.id);
       const rowNumber = startIndex + idx + 1;
+
+      if (item.isFarmerRow) {
+        const transactions = Array.from(new Map(item.petaniList
+          .filter(person => person.id)
+          .map(person => [person.id, person])).values());
+        const actions = transactions.map(person => {
+          const safeId = escapeForInlineHandler(person.id);
+          const safeName = escapeHtml(person.nama || item.petani);
+          return `<div style="display:flex;gap:3px;justify-content:center;">
+            <button type="button" onclick="openEditModal('${safeId}')" class="btn btn-secondary btn-sm" title="Edit ${safeName}">✏️</button>
+            <button type="button" onclick="handleSoftDelete('${safeId}')" class="btn btn-danger btn-sm" title="Batalkan ${safeName}">✕</button>
+          </div>`;
+        }).join('');
+        const landList = item.bidangList.map(land =>
+          `<div><strong>Blok ${escapeHtml(land.blok)} · Bid ${escapeHtml(land.bidang)}</strong><br><small>${escapeHtml(land.nop || '-')}</small></div>`
+        ).join('');
+
+        return `<tr style="${isChecked ? 'background: rgba(16, 185, 129, 0.05);' : ''}">
+          <td style="text-align:center;"><input type="checkbox" class="row-checkbox" value="${escapeHtml(item.id)}" ${isChecked ? 'checked' : ''} onchange="toggleRowCheckbox('${escapeForInlineHandler(item.id)}', 0, this.checked)"></td>
+          <td>${rowNumber}</td>
+          <td>${escapeHtml(item.kelompok)}</td>
+          <td><strong>${escapeHtml(item.nik)}</strong></td>
+          <td>${escapeHtml(item.petani)}</td>
+          <td>${escapeHtml(getNomorHpValue(item) || '-')}</td>
+          <td><strong>${item.countBidang} bidang</strong><div style="display:flex;flex-direction:column;gap:3px;margin-top:4px;font-size:0.72rem;color:var(--text-secondary);">${landList}</div></td>
+          <td style="text-align:center;">${renderFarmerMapIcons(item)}</td>
+          <td style="text-align:right;font-family:monospace;"><strong>${Number(item.totalLuasDaftar || 0).toLocaleString('id-ID')} m²</strong></td>
+          <td style="text-align:center;">${actions || '-'}</td>
+        </tr>`;
+      }
 
       // Status Badge
       let statusHtml = '';
@@ -6797,19 +7089,13 @@
     const countEl = document.getElementById('calc-checked-count');
     const luasEl = document.getElementById('calc-checked-luas');
     const haEl = document.getElementById('calc-checked-ha');
+    const unitEl = document.getElementById('calc-checked-unit');
 
-    let totalCheckedLuas = 0;
-    const raw = LahanState.rawData || [];
-
-    for (let i = 0; i < raw.length; i++) {
-      const r = raw[i];
-      if (LahanState.selectedIds.has(r.id)) {
-        totalCheckedLuas += (r.luasPBB || 0);
-      }
-    }
-
-    const count = LahanState.selectedIds.size;
+    const summary = getCheckedRowsSummary();
+    const totalCheckedLuas = summary.totalLuasPBB;
+    const count = summary.count;
     if (countEl) countEl.textContent = count;
+    if (unitEl) unitEl.textContent = LahanState.listingMode === 'petani' ? 'Petani' : 'Bidang';
     if (luasEl) luasEl.textContent = totalCheckedLuas.toLocaleString('id-ID') + ' m²';
     if (haEl) {
       const ha = (totalCheckedLuas / 10000).toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -6818,15 +7104,26 @@
     document.body.classList.toggle('m-has-selection', LahanState.selectedIds.size > 0);
   }
 
-  function copyCheckedLuas() {
-    let totalCheckedLuas = 0;
+  function getCheckedRowsSummary() {
     const raw = LahanState.rawData || [];
-    for (let i = 0; i < raw.length; i++) {
-      const r = raw[i];
-      if (LahanState.selectedIds.has(r.id)) {
-        totalCheckedLuas += (r.luasPBB || 0);
-      }
+    if (LahanState.listingMode === 'petani') {
+      const selectedFarmers = buildFarmerListingRows(raw, '')
+        .filter(farmer => LahanState.selectedIds.has(farmer.id));
+      const selectedLandIds = new Set(selectedFarmers.flatMap(farmer => farmer.landIds));
+      const totalLuasPBB = raw.reduce((sum, land) =>
+        sum + (selectedLandIds.has(land.id) ? Number(land.luasPBB || 0) : 0), 0);
+      return { count: selectedFarmers.length, totalLuasPBB };
     }
+
+    const selectedLands = raw.filter(land => LahanState.selectedIds.has(land.id));
+    return {
+      count: selectedLands.length,
+      totalLuasPBB: selectedLands.reduce((sum, land) => sum + (Number(land.luasPBB) || 0), 0)
+    };
+  }
+
+  function copyCheckedLuas() {
+    const totalCheckedLuas = getCheckedRowsSummary().totalLuasPBB;
 
     if (LahanState.selectedIds.size === 0) {
       showToast('Belum ada bidang tanah yang dicentang!', 'warning');
@@ -6864,7 +7161,7 @@
     const sortDescBtn = document.getElementById('ef-btn-sort-desc');
 
     let colName = colKey;
-    let isNum = (colKey === 'luasPBB' || colKey === 'totalLuasDaftar');
+    let isNum = (colKey === 'luasPBB' || colKey === 'totalLuasDaftar' || colKey === 'farmerLuas');
     if (colKey === 'blokKelompok') colName = 'Blok / Kelompok';
     else if (colKey === 'bidangNop') colName = 'Bidang / NOP';
     else if (colKey === 'namaWP') colName = 'Nama WP';
@@ -6872,6 +7169,12 @@
     else if (colKey === 'luasPBB') colName = 'Luas PBB';
     else if (colKey === 'totalLuasDaftar') colName = 'Luas Daftar';
     else if (colKey === 'status') colName = 'Status Bidang';
+    else if (colKey === 'farmerKelompok') colName = 'Kelompok Tani';
+    else if (colKey === 'farmerNik') colName = 'NIK';
+    else if (colKey === 'farmerNama') colName = 'Nama Petani';
+    else if (colKey === 'farmerNomorHp') colName = 'Nomor HP';
+    else if (colKey === 'farmerBidang') colName = 'Bidang / NOP';
+    else if (colKey === 'farmerLuas') colName = 'Total Luas Daftar';
 
     if (titleEl) titleEl.textContent = `Filter: ${colName}`;
     if (sortAscBtn) sortAscBtn.textContent = isNum ? '🔼 Terkecil ke Terbesar' : '🔼 Urutkan A ke Z';
@@ -6879,7 +7182,9 @@
 
     // Ambil nilai unik dari rawData
     const valCountMap = {};
-    const raw = LahanState.rawData || [];
+    const raw = LahanState.listingMode === 'petani'
+      ? buildFarmerListingRows(LahanState.rawData, '')
+      : (LahanState.rawData || []);
     for (let i = 0; i < raw.length; i++) {
       const v = getRowColValue(raw[i], colKey);
       valCountMap[v] = (valCountMap[v] || 0) + 1;
@@ -7680,6 +7985,7 @@
 
   function getActiveFilterDescription() {
     const parts = [];
+    parts.push('Mode: ' + (LahanState.listingMode === 'petani' ? 'Berdasar Petani' : 'Berdasar Lahan'));
     const keyword = document.getElementById('search-keyword') ? document.getElementById('search-keyword').value.trim() : '';
     const blok = document.getElementById('search-blok') ? document.getElementById('search-blok').value.trim() : '';
     const kelompok = document.getElementById('search-kelompok') ? document.getElementById('search-kelompok').value.trim() : '';
@@ -7709,12 +8015,32 @@
   }
 
   function buildExportHeaders() {
+    if (LahanState.listingMode === 'petani') {
+      return ['No', 'Kelompok Tani', 'NIK Petani', 'Nama Petani', 'Nomor HP', 'Jumlah Bidang', 'Daftar Bidang / NOP', 'LatLong', 'Luas Terdaftar (m²)'];
+    }
     return ['No', 'Blok', 'Kelompok Tani', 'Bidang', 'NOP', 'Nama WP (PBB)', 'Alamat WP',
             'Petani Pendaftar', 'NIK Petani', 'Nomor HP', 'Luas PBB (m²)', 'Luas Terdaftar (m²)',
             'Status Bidang', 'Koordinat', 'Link Google Maps'];
   }
 
   function buildExportRow(item, idx) {
+    if (item.isFarmerRow) {
+      const landSummary = item.bidangList.map(land =>
+        `Blok ${land.blok} Bid ${land.bidang} (${land.nop || '-'}) - ${Number(land.totalLuasDaftar || 0).toLocaleString('id-ID')} m²`
+      ).join(' | ');
+      return [
+        idx + 1,
+        item.kelompok || 'Tanpa Kelompok',
+        item.nik || '-',
+        item.petani || '-',
+        getNomorHpValue(item) || '-',
+        item.countBidang || 0,
+        landSummary,
+        getFarmerLatLongValue(item),
+        Number(item.totalLuasDaftar || 0)
+      ];
+    }
+
     let statusText = 'Belum Terdaftar';
     if (item.status === 'ganda') statusText = 'Terdaftar > 1x (' + item.countPendaftar + ')';
     else if (item.status === 'terdaftar') statusText = item.isLuasBerlebih ? 'Terdaftar (Luas Berlebih)' : 'Terdaftar';
@@ -7741,10 +8067,46 @@
   }
 
   /* ---- Excel Export (SheetJS / Fallback CSV) ---- */
+  function getExportTotals(data) {
+    if (LahanState.listingMode !== 'petani') {
+      return data.reduce((totals, item) => {
+        totals.totalPBB += Number(item.luasPBB || 0);
+        totals.totalDaftar += Number(item.totalLuasDaftar || 0);
+        return totals;
+      }, { totalPBB: 0, totalDaftar: 0 });
+    }
+
+    const uniqueLands = new Map();
+    const totalDaftar = data.reduce((sum, farmer) => sum + (Number(farmer.totalLuasDaftar) || 0), 0);
+    data.forEach(farmer => farmer.bidangList.forEach(land => {
+      if (!uniqueLands.has(land.id)) uniqueLands.set(land.id, Number(land.luasPBB) || 0);
+    }));
+    return {
+      totalPBB: Array.from(uniqueLands.values()).reduce((sum, area) => sum + area, 0),
+      totalDaftar
+    };
+  }
+
   function buildPdfPreviewMarkup(data) {
-    const totalPBB = data.reduce((sum, d) => sum + Number(d.luasPBB || 0), 0);
-    const totalDaftar = data.reduce((sum, d) => sum + Number(d.totalLuasDaftar || 0), 0);
+    const totals = getExportTotals(data);
+    const isFarmerMode = LahanState.listingMode === 'petani';
     const rows = data.slice(0, 18).map((item, idx) => {
+      if (item.isFarmerRow) {
+        const landSummary = item.bidangList.map(land =>
+          `Blok ${escapeHtml(land.blok)} Bid ${escapeHtml(land.bidang)} (${escapeHtml(land.nop || '-')})`
+        ).join('<br>');
+        return `<tr>
+          <td>${idx + 1}</td>
+          <td>${escapeHtml(item.kelompok)}</td>
+          <td>${escapeHtml(item.nik)}</td>
+          <td>${escapeHtml(item.petani)}</td>
+          <td>${escapeHtml(getNomorHpValue(item) || '-')}</td>
+          <td>${item.countBidang}</td>
+          <td>${landSummary}</td>
+          <td>${escapeHtml(getFarmerLatLongValue(item))}</td>
+          <td>${Number(item.totalLuasDaftar || 0).toLocaleString('id-ID')}</td>
+        </tr>`;
+      }
       const status = item.status === 'ganda' ? 'Terdaftar > 1x' : item.status === 'terdaftar' ? (item.isLuasBerlebih ? 'Terdaftar (Luas Berlebih)' : 'Terdaftar') : 'Belum Terdaftar';
       return `
         <tr>
@@ -7762,17 +8124,19 @@
     return `
       <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px; margin-bottom:12px; flex-wrap:wrap;">
         <div>
-          <div style="font-size:0.9rem; font-weight:700; color:var(--text-primary);">Laporan Data Bidang Lahan</div>
+          <div style="font-size:0.9rem; font-weight:700; color:var(--text-primary);">${isFarmerMode ? 'Laporan Data Petani' : 'Laporan Data Bidang Lahan'}</div>
           <div style="font-size:0.75rem; color:var(--text-muted);">${getActiveFilterDescription()}</div>
         </div>
         <div style="font-size:0.75rem; color:var(--text-secondary); text-align:right;">
-          <div>${data.length} baris</div>
-          <div>${totalPBB.toLocaleString('id-ID')} m²</div>
+          <div>${data.length} ${isFarmerMode ? 'petani' : 'bidang'}</div>
+          <div>PBB ${totals.totalPBB.toLocaleString('id-ID')} m²</div>
         </div>
       </div>
       <table>
         <thead>
-          <tr>
+          ${isFarmerMode ? `<tr>
+            <th>No</th><th>Kelompok Tani</th><th>NIK</th><th>Nama Petani</th><th>Nomor HP</th><th>Jumlah Bidang</th><th>Bidang / NOP</th><th>LatLong</th><th>Luas Terdaftar</th>
+          </tr>` : `<tr>
             <th>No</th>
             <th>Blok</th>
             <th>Bidang</th>
@@ -7780,11 +8144,11 @@
             <th>Petani</th>
             <th>Luas PBB</th>
             <th>Status</th>
-          </tr>
+          </tr>`}
         </thead>
         <tbody>${rows}</tbody>
       </table>
-      <div style="margin-top:12px; font-size:0.75rem; color:var(--text-secondary);">Total luas terdaftar: ${totalDaftar.toLocaleString('id-ID')} m²</div>
+      <div style="margin-top:12px; font-size:0.75rem; color:var(--text-secondary);">Total luas terdaftar: ${totals.totalDaftar.toLocaleString('id-ID')} m²</div>
     `;
   }
 
@@ -7799,8 +8163,9 @@
     const preview = document.getElementById('pdf-export-preview');
     const meta = document.getElementById('pdf-export-meta');
     if (modal && preview) {
+      const totals = getExportTotals(data);
       preview.innerHTML = buildPdfPreviewMarkup(data);
-      if (meta) meta.textContent = `${data.length} baris • ${data.reduce((sum, d) => sum + (Number(d.luasPBB) || 0), 0).toLocaleString('id-ID')} m²`;
+      if (meta) meta.textContent = `${data.length} ${LahanState.listingMode === 'petani' ? 'petani' : 'bidang'} · PBB ${totals.totalPBB.toLocaleString('id-ID')} m² · Terdaftar ${totals.totalDaftar.toLocaleString('id-ID')} m²`;
       modal.classList.add('show');
     }
   }
@@ -7824,7 +8189,7 @@
       return;
     }
 
-    printWindow.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Preview PDF Lahan</title>
+    printWindow.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Preview PDF ${LahanState.listingMode === 'petani' ? 'Petani' : 'Lahan'}</title>
       <style>body{font-family:Arial,sans-serif;margin:20px;color:#111} table{width:100%;border-collapse:collapse;font-size:11px;} th,td{border:1px solid #ccc;padding:6px;text-align:left;} th{background:#e2e8f0;} @page{size:landscape;margin:8mm;} </style></head><body>${html}</body></html>`);
     printWindow.document.close();
     printWindow.focus();
@@ -7857,17 +8222,15 @@
       const dateStr = now.toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' });
       const timeStr = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
       const filterDesc = getActiveFilterDescription();
-
-      // Hitung ringkasan
-      let totalPBB = 0, totalDaftar = 0;
-      data.forEach(d => { totalPBB += (d.luasPBB || 0); totalDaftar += (d.totalLuasDaftar || 0); });
+      const isFarmerMode = LahanState.listingMode === 'petani';
+      const totals = getExportTotals(data);
 
       // Bangun data sheet
       const metaRows = [
-        ['LAPORAN DATA BIDANG LAHAN — Pendataan e-RDKK'],
+        [isFarmerMode ? 'LAPORAN DATA PETANI — Pendataan e-RDKK' : 'LAPORAN DATA BIDANG LAHAN — Pendataan e-RDKK'],
         ['Diekspor: ' + dateStr + ', ' + timeStr + ' WIB'],
         ['Filter Aktif: ' + filterDesc],
-        ['Total: ' + data.length + ' bidang | Luas PBB: ' + totalPBB.toLocaleString('id-ID') + ' m² | Luas Terdaftar: ' + totalDaftar.toLocaleString('id-ID') + ' m²'],
+        ['Total: ' + data.length + (isFarmerMode ? ' petani' : ' bidang') + ' | Luas PBB: ' + totals.totalPBB.toLocaleString('id-ID') + ' m² | Luas Terdaftar: ' + totals.totalDaftar.toLocaleString('id-ID') + ' m²'],
         [] // separator
       ];
 
@@ -7887,7 +8250,10 @@
       });
 
       // Set column widths
-      ws['!cols'] = [
+      ws['!cols'] = isFarmerMode ? [
+        { wch: 5 }, { wch: 24 }, { wch: 20 }, { wch: 28 },
+        { wch: 18 }, { wch: 14 }, { wch: 60 }, { wch: 48 }, { wch: 20 }
+      ] : [
         { wch: 5 },   // No
         { wch: 10 },  // Blok
         { wch: 20 },  // Kelompok
@@ -7908,14 +8274,14 @@
       ws['!merges'] = [
         { s: { r: 0, c: 0 }, e: { r: 0, c: 6 } },
         { s: { r: 1, c: 0 }, e: { r: 1, c: 6 } },
-        { s: { r: 2, c: 0 }, e: { r: 2, c: 10 } },
-        { s: { r: 3, c: 0 }, e: { r: 3, c: 10 } }
+        { s: { r: 2, c: 0 }, e: { r: 2, c: headers.length - 1 } },
+        { s: { r: 3, c: 0 }, e: { r: 3, c: headers.length - 1 } }
       ];
 
       const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, 'Data Bidang Lahan');
+      XLSX.utils.book_append_sheet(wb, ws, isFarmerMode ? 'Data Petani' : 'Data Bidang Lahan');
 
-      const fileName = 'Ekspor_Lahan_eRDKK_' + now.toISOString().slice(0, 10) + '.xlsx';
+      const fileName = 'Ekspor_' + (isFarmerMode ? 'Petani' : 'Lahan') + '_eRDKK_' + now.toISOString().slice(0, 10) + '.xlsx';
       XLSX.writeFile(wb, fileName);
 
       showToast('File Excel berhasil diunduh: ' + fileName, 'success');
@@ -7957,12 +8323,13 @@
       const headers = buildExportHeaders();
       const BOM = '\uFEFF'; // UTF-8 BOM agar Excel mengenali karakter khusus
       let csvContent = BOM;
+      const isFarmerMode = LahanState.listingMode === 'petani';
 
       // Meta header
       const now = new Date();
       const dateStr = now.toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' });
       const filterDesc = getActiveFilterDescription();
-      csvContent += '"LAPORAN DATA BIDANG LAHAN — Pendataan e-RDKK"\n';
+      csvContent += '"' + (isFarmerMode ? 'LAPORAN DATA PETANI — Pendataan e-RDKK' : 'LAPORAN DATA BIDANG LAHAN — Pendataan e-RDKK') + '"\n';
       csvContent += '"Diekspor: ' + dateStr + '"\n';
       csvContent += '"Filter: ' + filterDesc.replace(/"/g, '""') + '"\n';
       csvContent += '\n';
@@ -7985,7 +8352,7 @@
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = 'Ekspor_Lahan_eRDKK_' + now.toISOString().slice(0, 10) + '.csv';
+      link.download = 'Ekspor_' + (isFarmerMode ? 'Petani' : 'Lahan') + '_eRDKK_' + now.toISOString().slice(0, 10) + '.csv';
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
