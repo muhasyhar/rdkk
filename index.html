@@ -6266,6 +6266,8 @@
         return item.nik || '-';
       case 'farmerNama':
         return item.petani || '-';
+      case 'farmerAlamat':
+        return item.alamat || '-';
       case 'farmerNomorHp':
         return getNomorHpValue(item) || '-';
       case 'farmerBidang':
@@ -6351,14 +6353,17 @@
             bidangList: [],
             landsById: new Map(),
             names: new Set(),
+            addresses: new Set(),
             phones: new Set()
           });
         }
 
         const farmer = groups.get(key);
         const name = String(person.nama || person.namaPetani || '').trim();
+        const address = String(person.alamat || person.alamatPetani || '').trim();
         const phone = String(person.nomorHp || '').trim();
         if (name) farmer.names.add(name);
+        if (address) farmer.addresses.add(address);
         if (phone) farmer.phones.add(phone);
         farmer.totalLuasDaftar += Number(person.luas !== undefined ? person.luas : person.luasDidaftarkan) || 0;
         farmer.countPendaftar++;
@@ -6369,6 +6374,7 @@
 
     return Array.from(groups.values()).map(farmer => {
       farmer.petani = Array.from(farmer.names).join(', ') || '-';
+      farmer.alamat = Array.from(farmer.addresses).join(' | ');
       farmer.nomorHp = Array.from(farmer.phones).join(', ');
       farmer.bidangList = Array.from(farmer.landsById.values()).map(land => ({
         id: land.id,
@@ -6611,7 +6617,7 @@
 
     // Update active filter icons on TH
     const colKeys = LahanState.listingMode === 'petani'
-      ? ['farmerKelompok', 'farmerNik', 'farmerNama', 'farmerNomorHp', 'farmerBidang', 'farmerLuas']
+      ? ['farmerKelompok', 'farmerNik', 'farmerNama', 'farmerAlamat', 'farmerNomorHp', 'farmerBidang', 'farmerLuas']
       : ['blokKelompok', 'bidangNop', 'namaWP', 'petani', 'nomorHp', 'luasPBB', 'totalLuasDaftar', 'koordinat', 'status'];
     colKeys.forEach(ck => {
       const icon = document.getElementById(`icon-filter-${ck}`);
@@ -6734,6 +6740,7 @@
         </div>
         <details class="lahan-mobile-card-details">
           <summary>Detail bidang dan transaksi</summary>
+          <div class="lahan-mobile-detail-row"><span class="lahan-mobile-detail-label">Alamat Petani</span><span class="lahan-mobile-detail-value">${escapeHtml(item.alamat || '-')}</span></div>
           <div class="lahan-mobile-detail-row"><span class="lahan-mobile-detail-label">Nomor HP</span><span class="lahan-mobile-detail-value">${escapeHtml(getNomorHpValue(item) || '-')}</span></div>
           <div class="lahan-mobile-detail-row"><span class="lahan-mobile-detail-label">Titik peta</span>${renderFarmerMapIcons(item)}</div>
           <div class="lahan-mobile-detail-row"><span class="lahan-mobile-detail-label">Bidang (${item.countBidang})</span>${landDetails}</div>
@@ -6761,6 +6768,7 @@
         ${filterHeader('farmerKelompok', 'Kelompok Tani')}
         ${filterHeader('farmerNik', 'NIK')}
         ${filterHeader('farmerNama', 'Nama Petani')}
+        ${filterHeader('farmerAlamat', 'Alamat Petani')}
         ${filterHeader('farmerNomorHp', 'Nomor HP')}
         ${filterHeader('farmerBidang', 'Bidang / NOP')}
         <th style="width:100px;text-align:center;">Koordinat</th>
@@ -6817,7 +6825,7 @@
       if (mobileSelectAll) mobileSelectAll.checked = false;
       tbody.innerHTML = `
         <tr>
-          <td colspan="${LahanState.listingMode === 'petani' ? 10 : 12}" style="text-align: center; color: var(--text-muted); padding: 36px;">
+          <td colspan="${LahanState.listingMode === 'petani' ? 11 : 12}" style="text-align: center; color: var(--text-muted); padding: 36px;">
             ${emptyMessage}
           </td>
         </tr>
@@ -6875,6 +6883,7 @@
           <td>${escapeHtml(item.kelompok)}</td>
           <td><strong>${escapeHtml(item.nik)}</strong></td>
           <td>${escapeHtml(item.petani)}</td>
+          <td>${escapeHtml(item.alamat || '-')}</td>
           <td>${escapeHtml(getNomorHpValue(item) || '-')}</td>
           <td><strong>${item.countBidang} bidang</strong><div style="display:flex;flex-direction:column;gap:3px;margin-top:4px;font-size:0.72rem;color:var(--text-secondary);">${landList}</div></td>
           <td style="text-align:center;">${renderFarmerMapIcons(item)}</td>
@@ -7172,6 +7181,7 @@
     else if (colKey === 'farmerKelompok') colName = 'Kelompok Tani';
     else if (colKey === 'farmerNik') colName = 'NIK';
     else if (colKey === 'farmerNama') colName = 'Nama Petani';
+    else if (colKey === 'farmerAlamat') colName = 'Alamat Petani';
     else if (colKey === 'farmerNomorHp') colName = 'Nomor HP';
     else if (colKey === 'farmerBidang') colName = 'Bidang / NOP';
     else if (colKey === 'farmerLuas') colName = 'Total Luas Daftar';
@@ -8016,7 +8026,7 @@
 
   function buildExportHeaders() {
     if (LahanState.listingMode === 'petani') {
-      return ['No', 'Kelompok Tani', 'NIK Petani', 'Nama Petani', 'Nomor HP', 'Jumlah Bidang', 'Daftar Bidang / NOP', 'LatLong', 'Luas Terdaftar (m²)'];
+      return ['No', 'Kelompok Tani', 'NIK Petani', 'Nama Petani', 'Alamat Petani', 'Nomor HP', 'Jumlah Bidang', 'Daftar Bidang / NOP', 'LatLong', 'Luas Terdaftar (m²)'];
     }
     return ['No', 'Blok', 'Kelompok Tani', 'Bidang', 'NOP', 'Nama WP (PBB)', 'Alamat WP',
             'Petani Pendaftar', 'NIK Petani', 'Nomor HP', 'Luas PBB (m²)', 'Luas Terdaftar (m²)',
@@ -8033,6 +8043,7 @@
         item.kelompok || 'Tanpa Kelompok',
         item.nik || '-',
         item.petani || '-',
+        item.alamat || '-',
         getNomorHpValue(item) || '-',
         item.countBidang || 0,
         landSummary,
@@ -8100,6 +8111,7 @@
           <td>${escapeHtml(item.kelompok)}</td>
           <td>${escapeHtml(item.nik)}</td>
           <td>${escapeHtml(item.petani)}</td>
+          <td>${escapeHtml(item.alamat || '-')}</td>
           <td>${escapeHtml(getNomorHpValue(item) || '-')}</td>
           <td>${item.countBidang}</td>
           <td>${landSummary}</td>
@@ -8135,7 +8147,7 @@
       <table>
         <thead>
           ${isFarmerMode ? `<tr>
-            <th>No</th><th>Kelompok Tani</th><th>NIK</th><th>Nama Petani</th><th>Nomor HP</th><th>Jumlah Bidang</th><th>Bidang / NOP</th><th>LatLong</th><th>Luas Terdaftar</th>
+            <th>No</th><th>Kelompok Tani</th><th>NIK</th><th>Nama Petani</th><th>Alamat Petani</th><th>Nomor HP</th><th>Jumlah Bidang</th><th>Bidang / NOP</th><th>LatLong</th><th>Luas Terdaftar</th>
           </tr>` : `<tr>
             <th>No</th>
             <th>Blok</th>
@@ -8252,7 +8264,7 @@
       // Set column widths
       ws['!cols'] = isFarmerMode ? [
         { wch: 5 }, { wch: 24 }, { wch: 20 }, { wch: 28 },
-        { wch: 18 }, { wch: 14 }, { wch: 60 }, { wch: 48 }, { wch: 20 }
+        { wch: 30 }, { wch: 18 }, { wch: 14 }, { wch: 60 }, { wch: 48 }, { wch: 20 }
       ] : [
         { wch: 5 },   // No
         { wch: 10 },  // Blok

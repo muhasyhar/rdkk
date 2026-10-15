@@ -2449,6 +2449,7 @@ function getUnifiedLahanData(params, token) {
         id: String(tr[0] || ''),
         nik: String(tr[3] || ''),
         nama: String(tr[4] || ''),
+        alamat: String(tr[5] || '').trim(),
         nomorHp: String(tr[6] || '').trim(),
         luas: luasDaftar
       });
